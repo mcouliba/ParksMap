@@ -1,0 +1,1706 @@
+apiVersion: v1
+kind: Template
+metadata:
+  creationTimestamp: null
+  name: mlbparks-mitzicom
+objects:
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    annotations:
+      openshift.io/generated-by: OpenShiftNewApp
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+    name: mlbparks
+  spec:
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      app: mlbparks
+      deploymentconfig: mlbparks
+    strategy:
+      activeDeadlineSeconds: 21600
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        post:
+          execNewPod:
+            command:
+            - curl
+            - http://mlbparks-mitzicom-dev.apps.46.4.112.21.xip.io/ws/data/load
+            containerName: mlbparks
+          failurePolicy: Abort
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        annotations:
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.port
+                name: mlbparks-config
+          - name: DB_USERNAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.username
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/info
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          name: mlbparks
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/healthz
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+    test: false
+    triggers:
+    - imageChangeParams:
+        containerNames:
+        - mlbparks
+        from:
+          kind: ImageStreamTag
+          name: mlbparks:latest
+          namespace: mitzicom-dev
+      type: ImageChange
+  status:
+    availableReplicas: 0
+    latestVersion: 0
+    observedGeneration: 0
+    replicas: 0
+    unavailableReplicas: 0
+    updatedReplicas: 0
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    annotations:
+      openshift.io/generated-by: OpenShiftNewApp
+      template.alpha.openshift.io/wait-for-ready: "true"
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      template: mongodb-persistent-template
+    name: mlbparks-mongodb
+  spec:
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      name: mlbparks-mongodb
+    strategy:
+      activeDeadlineSeconds: 21600
+      recreateParams:
+        timeoutSeconds: 600
+      resources: {}
+      type: Recreate
+    template:
+      metadata:
+        annotations:
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          name: mlbparks-mongodb
+      spec:
+        containers:
+        - env:
+          - name: MONGODB_USER
+            valueFrom:
+              secretKeyRef:
+                key: database-user
+                name: mlbparks-mongodb
+          - name: MONGODB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-password
+                name: mlbparks-mongodb
+          - name: MONGODB_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-admin-password
+                name: mlbparks-mongodb
+          - name: MONGODB_DATABASE
+            valueFrom:
+              secretKeyRef:
+                key: database-name
+                name: mlbparks-mongodb
+          image: registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 27017
+            timeoutSeconds: 1
+          name: mongodb
+          ports:
+          - containerPort: 27017
+            protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -i
+              - -c
+              - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
+                --eval="quit()"
+            failureThreshold: 3
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              memory: 512Mi
+          securityContext:
+            capabilities: {}
+            privileged: false
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /var/lib/mongodb/data
+            name: mlbparks-mongodb-data
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - name: mlbparks-mongodb-data
+          persistentVolumeClaim:
+            claimName: mlbparks-mongodb
+    test: false
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - mongodb
+        from:
+          kind: ImageStreamTag
+          name: mongodb:3.2
+          namespace: openshift
+      type: ImageChange
+    - type: ConfigChange
+  status:
+    availableReplicas: 0
+    latestVersion: 0
+    observedGeneration: 0
+    replicas: 0
+    unavailableReplicas: 0
+    updatedReplicas: 0
+- apiVersion: v1
+  kind: Route
+  metadata:
+    annotations:
+      openshift.io/host.generated: "true"
+    creationTimestamp: null
+    labels:
+      app: mlbparks
+    name: mlbparks
+  spec:
+    host: mlbparks-mitzicom-dev.apps.46.4.112.21.xip.io
+    port:
+      targetPort: 8080
+    to:
+      kind: Service
+      name: mlbparks
+      weight: 100
+    wildcardPolicy: None
+  status:
+    ingress:
+    - conditions:
+      - lastTransitionTime: 2018-02-13T13:58:14Z
+        status: "True"
+        type: Admitted
+      host: mlbparks-mitzicom-dev.apps.46.4.112.21.xip.io
+      routerName: router
+      wildcardPolicy: None
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubernetes.io/created-by: |
+        {"kind":"SerializedReference","apiVersion":"v1","reference":{"kind":"ReplicationController","namespace":"mitzicom-dev","name":"mlbparks-10","uid":"6168e738-10d7-11e8-b14d-5254006d9087","apiVersion":"v1","resourceVersion":"3353628"}}
+      openshift.io/deployment-config.latest-version: "10"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.name: mlbparks-10
+      openshift.io/generated-by: OpenShiftNewApp
+      openshift.io/scc: restricted
+    creationTimestamp: null
+    generateName: mlbparks-10-
+    labels:
+      app: mlbparks
+      deployment: mlbparks-10
+      deploymentconfig: mlbparks
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicationController
+      name: mlbparks-10
+      uid: 6168e738-10d7-11e8-b14d-5254006d9087
+  spec:
+    containers:
+    - env:
+      - name: DB_HOST
+        valueFrom:
+          configMapKeyRef:
+            key: db.host
+            name: mlbparks-config
+      - name: DB_PORT
+        valueFrom:
+          configMapKeyRef:
+            key: db.port
+            name: mlbparks-config
+      - name: DB_USERNAME
+        valueFrom:
+          configMapKeyRef:
+            key: db.username
+            name: mlbparks-config
+      - name: DB_PASSWORD
+        valueFrom:
+          configMapKeyRef:
+            key: db.password
+            name: mlbparks-config
+      - name: DB_NAME
+        valueFrom:
+          configMapKeyRef:
+            key: db.name
+            name: mlbparks-config
+      image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+      imagePullPolicy: Always
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /ws/info
+          port: 8080
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 120
+      name: mlbparks
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /ws/healthz
+          port: 8080
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 120
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+          - KILL
+          - MKNOD
+          - SETGID
+          - SETUID
+        privileged: false
+        runAsUser: 1000170000
+        seLinuxOptions:
+          level: s0:c13,c7
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-fbbjk
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    imagePullSecrets:
+    - name: default-dockercfg-fhmvw
+    nodeName: node02
+    nodeSelector:
+      purpose: work
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 1000170000
+      seLinuxOptions:
+        level: s0:c13,c7
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    volumes:
+    - name: default-token-fbbjk
+      secret:
+        defaultMode: 420
+        secretName: default-token-fbbjk
+  status:
+    phase: Pending
+    qosClass: BestEffort
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubernetes.io/created-by: |
+        {"kind":"SerializedReference","apiVersion":"v1","reference":{"kind":"ReplicationController","namespace":"mitzicom-dev","name":"mlbparks-mongodb-1","uid":"ea4bf008-10a9-11e8-ad2b-5254001ff7d1","apiVersion":"v1","resourceVersion":"3297101"}}
+      openshift.io/deployment-config.latest-version: "1"
+      openshift.io/deployment-config.name: mlbparks-mongodb
+      openshift.io/deployment.name: mlbparks-mongodb-1
+      openshift.io/generated-by: OpenShiftNewApp
+      openshift.io/scc: restricted
+    creationTimestamp: null
+    generateName: mlbparks-mongodb-1-
+    labels:
+      app: mlbparks
+      deployment: mlbparks-mongodb-1
+      deploymentconfig: mlbparks-mongodb
+      name: mlbparks-mongodb
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicationController
+      name: mlbparks-mongodb-1
+      uid: ea4bf008-10a9-11e8-ad2b-5254001ff7d1
+  spec:
+    containers:
+    - env:
+      - name: MONGODB_USER
+        valueFrom:
+          secretKeyRef:
+            key: database-user
+            name: mlbparks-mongodb
+      - name: MONGODB_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: database-password
+            name: mlbparks-mongodb
+      - name: MONGODB_ADMIN_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: database-admin-password
+            name: mlbparks-mongodb
+      - name: MONGODB_DATABASE
+        valueFrom:
+          secretKeyRef:
+            key: database-name
+            name: mlbparks-mongodb
+      image: registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        successThreshold: 1
+        tcpSocket:
+          port: 27017
+        timeoutSeconds: 1
+      name: mongodb
+      ports:
+      - containerPort: 27017
+        protocol: TCP
+      readinessProbe:
+        exec:
+          command:
+          - /bin/sh
+          - -i
+          - -c
+          - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
+            --eval="quit()"
+        failureThreshold: 3
+        initialDelaySeconds: 3
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          memory: 512Mi
+        requests:
+          memory: 512Mi
+      securityContext:
+        capabilities:
+          drop:
+          - KILL
+          - MKNOD
+          - SETGID
+          - SETUID
+        privileged: false
+        runAsUser: 1000170000
+        seLinuxOptions:
+          level: s0:c13,c7
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/lib/mongodb/data
+        name: mlbparks-mongodb-data
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-fbbjk
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    imagePullSecrets:
+    - name: default-dockercfg-fhmvw
+    nodeName: node01
+    nodeSelector:
+      purpose: work
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 1000170000
+      seLinuxOptions:
+        level: s0:c13,c7
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    volumes:
+    - name: mlbparks-mongodb-data
+      persistentVolumeClaim:
+        claimName: mlbparks-mongodb
+    - name: default-token-fbbjk
+      secret:
+        defaultMode: 420
+        secretName: default-token-fbbjk
+  status:
+    phase: Pending
+    qosClass: Burstable
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/desired-replicas: "1"
+      openshift.io/deployer-pod.completed-at: 2018-02-13 08:33:31 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 08:31:40 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-1-deploy
+      openshift.io/deployment-config.latest-version: "1"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.cancelled: "true"
+      openshift.io/deployment.phase: Failed
+      openshift.io/deployment.replicas: "0"
+      openshift.io/deployment.status-reason: The deployment was cancelled by the user
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks","uid":"74ec6cc7-10a8-11e8-b14d-5254006d9087","resourceVersion":"3326328","generation":8,"creationTimestamp":"2018-02-13T10:27:13Z","labels":{"app":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://mlbparks:8080/ws/data/load"],"containerName":"mlbparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["mlbparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"mlbparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"mlbparks","deploymentconfig":"mlbparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","deploymentconfig":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"mlbparks","image":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714","env":[{"name":"DB_HOST","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.host"}}},{"name":"DB_PORT","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.post"}}},{"name":"DB_USER","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.user"}}},{"name":"DB_PASSWORD","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.password"}}},{"name":"DB_NAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.name"}}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":1,"observedGeneration":7,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T10:27:13Z","lastTransitionTime":"2018-02-13T10:27:13Z","message":"Deployment config does not have minimum availability."}]}}
+      openshift.io/jenkins-build-uri: https://jenkins-jenkins.apps.46.4.112.21.xip.io/job/MitziCom%20-%20mlbparks/12/
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks
+    name: mlbparks-1
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks
+      uid: 74ec6cc7-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 0
+    selector:
+      app: mlbparks
+      deployment: mlbparks-1
+      deploymentconfig: mlbparks
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "1"
+          openshift.io/deployment-config.name: mlbparks
+          openshift.io/deployment.name: mlbparks-1
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-1
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.post
+                name: mlbparks-config
+          - name: DB_USER
+            valueFrom:
+              configMapKeyRef:
+                key: db.user
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/info
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: mlbparks
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      openshift.io/deployer-pod.completed-at: 2018-02-13 11:03:34 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 11:03:07 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-10-deploy
+      openshift.io/deployment-config.latest-version: "10"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.phase: Complete
+      openshift.io/deployment.replicas: ""
+      openshift.io/deployment.status-reason: manual change
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks","uid":"74ec6cc7-10a8-11e8-b14d-5254006d9087","resourceVersion":"3353604","generation":30,"creationTimestamp":"2018-02-13T10:27:13Z","labels":{"app":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://mlbparks.mitzicom-dev.svc:8080/ws/data/load"],"containerName":"mlbparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["mlbparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"mlbparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"mlbparks","deploymentconfig":"mlbparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","deploymentconfig":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"mlbparks","image":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714","env":[{"name":"DB_HOST","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.host"}}},{"name":"DB_PORT","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.port"}}},{"name":"DB_USERNAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.username"}}},{"name":"DB_PASSWORD","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.password"}}},{"name":"DB_NAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.name"}}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":10,"observedGeneration":29,"replicas":1,"updatedReplicas":1,"availableReplicas":1,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Progressing","status":"True","lastUpdateTime":"2018-02-13T14:11:11Z","lastTransitionTime":"2018-02-13T14:11:07Z","reason":"NewReplicationControllerAvailable","message":"replication controller \"mlbparks-9\" successfully rolled out"},{"type":"Available","status":"True","lastUpdateTime":"2018-02-13T14:57:17Z","lastTransitionTime":"2018-02-13T14:57:17Z","message":"Deployment config has minimum availability."}],"readyReplicas":1}}
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks
+    name: mlbparks-10
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks
+      uid: 74ec6cc7-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 1
+    selector:
+      app: mlbparks
+      deployment: mlbparks-10
+      deploymentconfig: mlbparks
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "10"
+          openshift.io/deployment-config.name: mlbparks
+          openshift.io/deployment.name: mlbparks-10
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-10
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.port
+                name: mlbparks-config
+          - name: DB_USERNAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.username
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/info
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          name: mlbparks
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/healthz
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/desired-replicas: "1"
+      openshift.io/deployer-pod.completed-at: 2018-02-13 08:39:11 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 08:34:14 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-2-deploy
+      openshift.io/deployment-config.latest-version: "2"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.cancelled: "true"
+      openshift.io/deployment.phase: Failed
+      openshift.io/deployment.replicas: "0"
+      openshift.io/deployment.status-reason: The deployment was cancelled by the user
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks","uid":"74ec6cc7-10a8-11e8-b14d-5254006d9087","resourceVersion":"3326837","generation":10,"creationTimestamp":"2018-02-13T10:27:13Z","labels":{"app":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://mlbparks:8080/ws/data/load"],"containerName":"mlbparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["mlbparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"mlbparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"mlbparks","deploymentconfig":"mlbparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","deploymentconfig":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"mlbparks","image":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714","env":[{"name":"DB_HOST","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.host"}}},{"name":"DB_PORT","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.port"}}},{"name":"DB_USER","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.user"}}},{"name":"DB_PASSWORD","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.password"}}},{"name":"DB_NAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.name"}}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":2,"observedGeneration":9,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T10:27:13Z","lastTransitionTime":"2018-02-13T10:27:13Z","message":"Deployment config does not have minimum availability."},{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T13:33:31Z","lastTransitionTime":"2018-02-13T13:33:31Z","reason":"RolloutCancelled","message":"rollout of replication controller \"mlbparks-1\" was cancelled"}]}}
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks
+    name: mlbparks-2
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks
+      uid: 74ec6cc7-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 0
+    selector:
+      app: mlbparks
+      deployment: mlbparks-2
+      deploymentconfig: mlbparks
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "2"
+          openshift.io/deployment-config.name: mlbparks
+          openshift.io/deployment.name: mlbparks-2
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-2
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.port
+                name: mlbparks-config
+          - name: DB_USER
+            valueFrom:
+              configMapKeyRef:
+                key: db.user
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/info
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: mlbparks
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/original-replicas: "1"
+      openshift.io/deployer-pod.completed-at: 2018-02-13 08:41:56 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 08:41:17 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-3-deploy
+      openshift.io/deployment-config.latest-version: "3"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.phase: Complete
+      openshift.io/deployment.replicas: "1"
+      openshift.io/deployment.status-reason: manual change
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks","uid":"74ec6cc7-10a8-11e8-b14d-5254006d9087","resourceVersion":"3328086","generation":12,"creationTimestamp":"2018-02-13T10:27:13Z","labels":{"app":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://mlbparks:8080/ws/data/load"],"containerName":"mlbparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["mlbparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"mlbparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"mlbparks","deploymentconfig":"mlbparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","deploymentconfig":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"mlbparks","image":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714","env":[{"name":"DB_HOST","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.host"}}},{"name":"DB_PORT","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.port"}}},{"name":"DB_USER","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.user"}}},{"name":"DB_PASSWORD","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.password"}}},{"name":"DB_NAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.name"}}}],"resources":{},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":3,"observedGeneration":11,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T10:27:13Z","lastTransitionTime":"2018-02-13T10:27:13Z","message":"Deployment config does not have minimum availability."},{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T13:39:11Z","lastTransitionTime":"2018-02-13T13:39:11Z","reason":"RolloutCancelled","message":"rollout of replication controller \"mlbparks-2\" was cancelled"}]}}
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks
+    name: mlbparks-3
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks
+      uid: 74ec6cc7-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 0
+    selector:
+      app: mlbparks
+      deployment: mlbparks-3
+      deploymentconfig: mlbparks
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "3"
+          openshift.io/deployment-config.name: mlbparks
+          openshift.io/deployment.name: mlbparks-3
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-3
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.port
+                name: mlbparks-config
+          - name: DB_USER
+            valueFrom:
+              configMapKeyRef:
+                key: db.user
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          name: mlbparks
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/original-replicas: "1"
+      openshift.io/deployer-pod.completed-at: 2018-02-13 08:46:18 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 08:45:40 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-4-deploy
+      openshift.io/deployment-config.latest-version: "4"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.phase: Complete
+      openshift.io/deployment.replicas: ""
+      openshift.io/deployment.status-reason: manual change
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks","uid":"74ec6cc7-10a8-11e8-b14d-5254006d9087","resourceVersion":"3328875","generation":15,"creationTimestamp":"2018-02-13T10:27:13Z","labels":{"app":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://mlbparks:8080/ws/data/load"],"containerName":"mlbparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["mlbparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"mlbparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"mlbparks","deploymentconfig":"mlbparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","deploymentconfig":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"mlbparks","image":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714","env":[{"name":"DB_HOST","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.host"}}},{"name":"DB_PORT","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.port"}}},{"name":"DB_USER","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.user"}}},{"name":"DB_PASSWORD","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.password"}}},{"name":"DB_NAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.name"}}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":4,"observedGeneration":14,"replicas":1,"updatedReplicas":1,"availableReplicas":1,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"True","lastUpdateTime":"2018-02-13T13:41:20Z","lastTransitionTime":"2018-02-13T13:41:20Z","message":"Deployment config has minimum availability."},{"type":"Progressing","status":"True","lastUpdateTime":"2018-02-13T13:41:57Z","lastTransitionTime":"2018-02-13T13:41:57Z","reason":"NewReplicationControllerAvailable","message":"replication controller \"mlbparks-3\" successfully rolled out"}],"readyReplicas":1}}
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks
+    name: mlbparks-4
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks
+      uid: 74ec6cc7-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 0
+    selector:
+      app: mlbparks
+      deployment: mlbparks-4
+      deploymentconfig: mlbparks
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "4"
+          openshift.io/deployment-config.name: mlbparks
+          openshift.io/deployment.name: mlbparks-4
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-4
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.port
+                name: mlbparks-config
+          - name: DB_USER
+            valueFrom:
+              configMapKeyRef:
+                key: db.user
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/info
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: mlbparks
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/healthz
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/original-replicas: "1"
+      openshift.io/deployer-pod.completed-at: 2018-02-13 08:50:43 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 08:50:15 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-5-deploy
+      openshift.io/deployment-config.latest-version: "5"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.phase: Complete
+      openshift.io/deployment.replicas: ""
+      openshift.io/deployment.status-reason: manual change
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks","uid":"74ec6cc7-10a8-11e8-b14d-5254006d9087","resourceVersion":"3329739","generation":18,"creationTimestamp":"2018-02-13T10:27:13Z","labels":{"app":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://mlbparks:8080/ws/data/load"],"containerName":"mlbparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["mlbparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"mlbparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"mlbparks","deploymentconfig":"mlbparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","deploymentconfig":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"mlbparks","image":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714","env":[{"name":"DB_HOST","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.host"}}},{"name":"DB_PORT","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.port"}}},{"name":"DB_USER","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.user"}}},{"name":"DB_PASSWORD","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.password"}}},{"name":"DB_NAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.name"}}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":5,"observedGeneration":17,"replicas":1,"updatedReplicas":1,"availableReplicas":0,"unavailableReplicas":1,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Progressing","status":"True","lastUpdateTime":"2018-02-13T13:46:18Z","lastTransitionTime":"2018-02-13T13:46:14Z","reason":"NewReplicationControllerAvailable","message":"replication controller \"mlbparks-4\" successfully rolled out"},{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T13:46:22Z","lastTransitionTime":"2018-02-13T13:46:22Z","message":"Deployment config does not have minimum availability."}]}}
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks
+    name: mlbparks-5
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks
+      uid: 74ec6cc7-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 0
+    selector:
+      app: mlbparks
+      deployment: mlbparks-5
+      deploymentconfig: mlbparks
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "5"
+          openshift.io/deployment-config.name: mlbparks
+          openshift.io/deployment.name: mlbparks-5
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-5
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.port
+                name: mlbparks-config
+          - name: DB_USER
+            valueFrom:
+              configMapKeyRef:
+                key: db.user
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/info
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          name: mlbparks
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/healthz
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/desired-replicas: "1"
+      kubectl.kubernetes.io/update-source-id: mlbparks-5:d1aff596-10c4-11e8-b14d-5254006d9087
+      openshift.io/deployer-pod.completed-at: 2018-02-13 08:58:47 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 08:56:16 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-6-deploy
+      openshift.io/deployment-config.latest-version: "6"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.cancelled: "true"
+      openshift.io/deployment.phase: Failed
+      openshift.io/deployment.replicas: "0"
+      openshift.io/deployment.status-reason: The deployment was cancelled by the user
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks","uid":"74ec6cc7-10a8-11e8-b14d-5254006d9087","resourceVersion":"3330824","generation":21,"creationTimestamp":"2018-02-13T10:27:13Z","labels":{"app":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://mlbparks:8080/ws/data/load"],"containerName":"mlbparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["mlbparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"mlbparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"mlbparks","deploymentconfig":"mlbparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","deploymentconfig":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"mlbparks","image":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714","env":[{"name":"DB_HOST","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.host"}}},{"name":"DB_PORT","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.port"}}},{"name":"DB_USER","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.user"}}},{"name":"DB_PASSWORD","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.password"}}},{"name":"DB_NAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.name"}}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"host":"mlbparks","scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"host":"mlbparks","scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":6,"observedGeneration":20,"replicas":1,"updatedReplicas":1,"availableReplicas":1,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"True","lastUpdateTime":"2018-02-13T13:50:39Z","lastTransitionTime":"2018-02-13T13:50:39Z","message":"Deployment config has minimum availability."},{"type":"Progressing","status":"True","lastUpdateTime":"2018-02-13T13:50:44Z","lastTransitionTime":"2018-02-13T13:50:39Z","reason":"NewReplicationControllerAvailable","message":"replication controller \"mlbparks-5\" successfully rolled out"}],"readyReplicas":1}}
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks
+    name: mlbparks-6
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks
+      uid: 74ec6cc7-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 0
+    selector:
+      app: mlbparks
+      deployment: mlbparks-6
+      deploymentconfig: mlbparks
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "6"
+          openshift.io/deployment-config.name: mlbparks
+          openshift.io/deployment.name: mlbparks-6
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-6
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.port
+                name: mlbparks-config
+          - name: DB_USER
+            valueFrom:
+              configMapKeyRef:
+                key: db.user
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              host: mlbparks
+              path: /ws/info
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          name: mlbparks
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              host: mlbparks
+              path: /ws/healthz
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/original-replicas: "1"
+      openshift.io/deployer-pod.completed-at: 2018-02-13 08:59:21 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 08:58:53 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-7-deploy
+      openshift.io/deployment-config.latest-version: "7"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.phase: Complete
+      openshift.io/deployment.replicas: ""
+      openshift.io/deployment.status-reason: manual change
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks","uid":"74ec6cc7-10a8-11e8-b14d-5254006d9087","resourceVersion":"3331352","generation":24,"creationTimestamp":"2018-02-13T10:27:13Z","labels":{"app":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://mlbparks:8080/ws/data/load"],"containerName":"mlbparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["mlbparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"mlbparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"mlbparks","deploymentconfig":"mlbparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","deploymentconfig":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"mlbparks","image":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714","env":[{"name":"DB_HOST","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.host"}}},{"name":"DB_PORT","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.port"}}},{"name":"DB_USER","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.user"}}},{"name":"DB_PASSWORD","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.password"}}},{"name":"DB_NAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.name"}}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":7,"observedGeneration":23,"replicas":1,"updatedReplicas":0,"availableReplicas":1,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"True","lastUpdateTime":"2018-02-13T13:50:39Z","lastTransitionTime":"2018-02-13T13:50:39Z","message":"Deployment config has minimum availability."},{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T13:58:48Z","lastTransitionTime":"2018-02-13T13:58:48Z","reason":"RolloutCancelled","message":"rollout of replication controller \"mlbparks-6\" was cancelled"}],"readyReplicas":1}}
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks
+    name: mlbparks-7
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks
+      uid: 74ec6cc7-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 0
+    selector:
+      app: mlbparks
+      deployment: mlbparks-7
+      deploymentconfig: mlbparks
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "7"
+          openshift.io/deployment-config.name: mlbparks
+          openshift.io/deployment.name: mlbparks-7
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-7
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.port
+                name: mlbparks-config
+          - name: DB_USER
+            valueFrom:
+              configMapKeyRef:
+                key: db.user
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/info
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          name: mlbparks
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/healthz
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/original-replicas: "1"
+      openshift.io/deployer-pod.completed-at: 2018-02-13 09:05:30 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 09:05:01 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-8-deploy
+      openshift.io/deployment-config.latest-version: "8"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.phase: Complete
+      openshift.io/deployment.replicas: ""
+      openshift.io/deployment.status-reason: manual change
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks","uid":"74ec6cc7-10a8-11e8-b14d-5254006d9087","resourceVersion":"3332450","generation":26,"creationTimestamp":"2018-02-13T10:27:13Z","labels":{"app":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://mlbparks.mitzicom-dev.svc:8080/ws/data/load"],"containerName":"mlbparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["mlbparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"mlbparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"mlbparks","deploymentconfig":"mlbparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","deploymentconfig":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"mlbparks","image":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714","env":[{"name":"DB_HOST","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.host"}}},{"name":"DB_PORT","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.port"}}},{"name":"DB_USER","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.user"}}},{"name":"DB_PASSWORD","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.password"}}},{"name":"DB_NAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.name"}}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":8,"observedGeneration":25,"replicas":1,"updatedReplicas":1,"availableReplicas":1,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"True","lastUpdateTime":"2018-02-13T13:50:39Z","lastTransitionTime":"2018-02-13T13:50:39Z","message":"Deployment config has minimum availability."},{"type":"Progressing","status":"True","lastUpdateTime":"2018-02-13T13:59:22Z","lastTransitionTime":"2018-02-13T13:59:16Z","reason":"NewReplicationControllerAvailable","message":"replication controller \"mlbparks-7\" successfully rolled out"}],"readyReplicas":1}}
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks
+    name: mlbparks-8
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks
+      uid: 74ec6cc7-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 0
+    selector:
+      app: mlbparks
+      deployment: mlbparks-8
+      deploymentconfig: mlbparks
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "8"
+          openshift.io/deployment-config.name: mlbparks
+          openshift.io/deployment.name: mlbparks-8
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-8
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.port
+                name: mlbparks-config
+          - name: DB_USER
+            valueFrom:
+              configMapKeyRef:
+                key: db.user
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/info
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          name: mlbparks
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/healthz
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/original-replicas: "1"
+      openshift.io/deployer-pod.completed-at: 2018-02-13 09:11:10 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 09:10:44 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-9-deploy
+      openshift.io/deployment-config.latest-version: "9"
+      openshift.io/deployment-config.name: mlbparks
+      openshift.io/deployment.phase: Complete
+      openshift.io/deployment.replicas: ""
+      openshift.io/deployment.status-reason: manual change
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks","uid":"74ec6cc7-10a8-11e8-b14d-5254006d9087","resourceVersion":"3333471","generation":27,"creationTimestamp":"2018-02-13T10:27:13Z","labels":{"app":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://mlbparks.mitzicom-dev.svc:8080/ws/data/load"],"containerName":"mlbparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["mlbparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"mlbparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"mlbparks","deploymentconfig":"mlbparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","deploymentconfig":"mlbparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"mlbparks","image":"docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714","env":[{"name":"DB_HOST","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.host"}}},{"name":"DB_PORT","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.port"}}},{"name":"DB_USER","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.user"}}},{"name":"DB_PASSWORD","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.password"}}},{"name":"DB_NAME","valueFrom":{"configMapKeyRef":{"name":"mlbparks-config","key":"db.name"}}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":9,"observedGeneration":26,"replicas":1,"updatedReplicas":1,"availableReplicas":1,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"True","lastUpdateTime":"2018-02-13T13:50:39Z","lastTransitionTime":"2018-02-13T13:50:39Z","message":"Deployment config has minimum availability."},{"type":"Progressing","status":"True","lastUpdateTime":"2018-02-13T14:05:30Z","lastTransitionTime":"2018-02-13T14:05:26Z","reason":"NewReplicationControllerAvailable","message":"replication controller \"mlbparks-8\" successfully rolled out"}],"readyReplicas":1}}
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks
+    name: mlbparks-9
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks
+      uid: 74ec6cc7-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 0
+    selector:
+      app: mlbparks
+      deployment: mlbparks-9
+      deploymentconfig: mlbparks
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "9"
+          openshift.io/deployment-config.name: mlbparks
+          openshift.io/deployment.name: mlbparks-9
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-9
+          deploymentconfig: mlbparks
+      spec:
+        containers:
+        - env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                key: db.host
+                name: mlbparks-config
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                key: db.port
+                name: mlbparks-config
+          - name: DB_USER
+            valueFrom:
+              configMapKeyRef:
+                key: db.user
+                name: mlbparks-config
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                key: db.password
+                name: mlbparks-config
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                key: db.name
+                name: mlbparks-config
+          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/info
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          name: mlbparks
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/healthz
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      openshift.io/deployer-pod.completed-at: 2018-02-13 05:37:51 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 05:37:40 -0500 EST
+      openshift.io/deployer-pod.name: mlbparks-mongodb-1-deploy
+      openshift.io/deployment-config.latest-version: "1"
+      openshift.io/deployment-config.name: mlbparks-mongodb
+      openshift.io/deployment.phase: Complete
+      openshift.io/deployment.replicas: "1"
+      openshift.io/deployment.status-reason: config change
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"mlbparks-mongodb","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/mlbparks-mongodb","uid":"ea1e417d-10a9-11e8-b14d-5254006d9087","resourceVersion":"3297081","generation":2,"creationTimestamp":"2018-02-13T10:37:39Z","labels":{"app":"mlbparks","template":"mongodb-persistent-template"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp","template.alpha.openshift.io/wait-for-ready":"true"}},"spec":{"strategy":{"type":"Recreate","recreateParams":{"timeoutSeconds":600},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"automatic":true,"containerNames":["mongodb"],"from":{"kind":"ImageStreamTag","namespace":"openshift","name":"mongodb:3.2"},"lastTriggeredImage":"registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948"}},{"type":"ConfigChange"}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"name":"mlbparks-mongodb"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"mlbparks","name":"mlbparks-mongodb"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"volumes":[{"name":"mlbparks-mongodb-data","persistentVolumeClaim":{"claimName":"mlbparks-mongodb"}}],"containers":[{"name":"mongodb","image":"registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948","ports":[{"containerPort":27017,"protocol":"TCP"}],"env":[{"name":"MONGODB_USER","valueFrom":{"secretKeyRef":{"name":"mlbparks-mongodb","key":"database-user"}}},{"name":"MONGODB_PASSWORD","valueFrom":{"secretKeyRef":{"name":"mlbparks-mongodb","key":"database-password"}}},{"name":"MONGODB_ADMIN_PASSWORD","valueFrom":{"secretKeyRef":{"name":"mlbparks-mongodb","key":"database-admin-password"}}},{"name":"MONGODB_DATABASE","valueFrom":{"secretKeyRef":{"name":"mlbparks-mongodb","key":"database-name"}}}],"resources":{"limits":{"memory":"512Mi"}},"volumeMounts":[{"name":"mlbparks-mongodb-data","mountPath":"/var/lib/mongodb/data"}],"livenessProbe":{"tcpSocket":{"port":27017},"initialDelaySeconds":30,"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"exec":{"command":["/bin/sh","-i","-c","mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD --eval=\"quit()\""]},"initialDelaySeconds":3,"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"IfNotPresent","securityContext":{"capabilities":{},"privileged":false}}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":1,"observedGeneration":2,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"config change","causes":[{"type":"ConfigChange"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T10:37:40Z","lastTransitionTime":"2018-02-13T10:37:40Z","message":"Deployment config does not have minimum availability."}]}}
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: mlbparks
+      openshift.io/deployment-config.name: mlbparks-mongodb
+      template: mongodb-persistent-template
+    name: mlbparks-mongodb-1
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: mlbparks-mongodb
+      uid: ea1e417d-10a9-11e8-b14d-5254006d9087
+  spec:
+    replicas: 1
+    selector:
+      deployment: mlbparks-mongodb-1
+      deploymentconfig: mlbparks-mongodb
+      name: mlbparks-mongodb
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "1"
+          openshift.io/deployment-config.name: mlbparks-mongodb
+          openshift.io/deployment.name: mlbparks-mongodb-1
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: mlbparks
+          deployment: mlbparks-mongodb-1
+          deploymentconfig: mlbparks-mongodb
+          name: mlbparks-mongodb
+      spec:
+        containers:
+        - env:
+          - name: MONGODB_USER
+            valueFrom:
+              secretKeyRef:
+                key: database-user
+                name: mlbparks-mongodb
+          - name: MONGODB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-password
+                name: mlbparks-mongodb
+          - name: MONGODB_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: database-admin-password
+                name: mlbparks-mongodb
+          - name: MONGODB_DATABASE
+            valueFrom:
+              secretKeyRef:
+                key: database-name
+                name: mlbparks-mongodb
+          image: registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 27017
+            timeoutSeconds: 1
+          name: mongodb
+          ports:
+          - containerPort: 27017
+            protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -i
+              - -c
+              - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
+                --eval="quit()"
+            failureThreshold: 3
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              memory: 512Mi
+          securityContext:
+            capabilities: {}
+            privileged: false
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /var/lib/mongodb/data
+            name: mlbparks-mongodb-data
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - name: mlbparks-mongodb-data
+          persistentVolumeClaim:
+            claimName: mlbparks-mongodb
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: null
+    labels:
+      app: mlbparks
+    name: mlbparks
+  spec:
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: mlbparks
+      deploymentconfig: mlbparks
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      openshift.io/generated-by: OpenShiftNewApp
+      template.openshift.io/expose-uri: mongodb://{.spec.clusterIP}:{.spec.ports[?(.name=="mongo")].port}
+    creationTimestamp: null
+    labels:
+      app: mlbparks
+      template: mongodb-persistent-template
+    name: mlbparks-mongodb
+  spec:
+    ports:
+    - name: mongo
+      port: 27017
+      protocol: TCP
+      targetPort: 27017
+    selector:
+      name: mlbparks-mongodb
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}

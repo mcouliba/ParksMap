@@ -1,0 +1,301 @@
+apiVersion: v1
+kind: Template
+metadata:
+  creationTimestamp: null
+  name: parksmap-web-mitzicom
+objects:
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    annotations:
+      openshift.io/generated-by: OpenShiftNewApp
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: parksmap-web
+    name: parksmap-web
+  spec:
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      app: parksmap-web
+      deploymentconfig: parksmap-web
+    strategy:
+      activeDeadlineSeconds: 21600
+      resources: {}
+      rollingParams:
+        intervalSeconds: 1
+        maxSurge: 25%
+        maxUnavailable: 25%
+        timeoutSeconds: 600
+        updatePeriodSeconds: 1
+      type: Rolling
+    template:
+      metadata:
+        annotations:
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: parksmap-web
+          deploymentconfig: parksmap-web
+      spec:
+        containers:
+        - image: docker-registry.default.svc:5000/mitzicom-dev/parksmap-web@sha256:bbb8750617ce0281a2c2bd4e789aac68369da1228bc59a795fc3126cd75b1469
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/backends/list/
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          name: parksmap-web
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/healthz/
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+    test: false
+    triggers:
+    - imageChangeParams:
+        containerNames:
+        - parksmap-web
+        from:
+          kind: ImageStreamTag
+          name: parksmap-web:latest
+          namespace: mitzicom-dev
+      type: ImageChange
+  status:
+    availableReplicas: 0
+    latestVersion: 0
+    observedGeneration: 0
+    replicas: 0
+    unavailableReplicas: 0
+    updatedReplicas: 0
+- apiVersion: v1
+  kind: Route
+  metadata:
+    annotations:
+      openshift.io/host.generated: "true"
+    creationTimestamp: null
+    labels:
+      app: parksmap-web
+    name: parksmap-web
+  spec:
+    host: parksmap-web-mitzicom-dev.apps.46.4.112.21.xip.io
+    port:
+      targetPort: 8080
+    to:
+      kind: Service
+      name: parksmap-web
+      weight: 100
+    wildcardPolicy: None
+  status:
+    ingress:
+    - conditions:
+      - lastTransitionTime: 2018-02-13T10:30:16Z
+        status: "True"
+        type: Admitted
+      host: parksmap-web-mitzicom-dev.apps.46.4.112.21.xip.io
+      routerName: router
+      wildcardPolicy: None
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubernetes.io/created-by: |
+        {"kind":"SerializedReference","apiVersion":"v1","reference":{"kind":"ReplicationController","namespace":"mitzicom-dev","name":"parksmap-web-1","uid":"c8bd6c83-10da-11e8-b14d-5254006d9087","apiVersion":"v1","resourceVersion":"3357858"}}
+      openshift.io/deployment-config.latest-version: "1"
+      openshift.io/deployment-config.name: parksmap-web
+      openshift.io/deployment.name: parksmap-web-1
+      openshift.io/generated-by: OpenShiftNewApp
+      openshift.io/scc: restricted
+    creationTimestamp: null
+    generateName: parksmap-web-1-
+    labels:
+      app: parksmap-web
+      deployment: parksmap-web-1
+      deploymentconfig: parksmap-web
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicationController
+      name: parksmap-web-1
+      uid: c8bd6c83-10da-11e8-b14d-5254006d9087
+  spec:
+    containers:
+    - image: docker-registry.default.svc:5000/mitzicom-dev/parksmap-web@sha256:bbb8750617ce0281a2c2bd4e789aac68369da1228bc59a795fc3126cd75b1469
+      imagePullPolicy: Always
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /ws/backends/list/
+          port: 8080
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 120
+      name: parksmap-web
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /ws/healthz/
+          port: 8080
+          scheme: HTTP
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 120
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+          - KILL
+          - MKNOD
+          - SETGID
+          - SETUID
+        privileged: false
+        runAsUser: 1000170000
+        seLinuxOptions:
+          level: s0:c13,c7
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-fbbjk
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    imagePullSecrets:
+    - name: default-dockercfg-fhmvw
+    nodeName: node03
+    nodeSelector:
+      purpose: work
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 1000170000
+      seLinuxOptions:
+        level: s0:c13,c7
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    volumes:
+    - name: default-token-fbbjk
+      secret:
+        defaultMode: 420
+        secretName: default-token-fbbjk
+  status:
+    phase: Pending
+    qosClass: BestEffort
+- apiVersion: v1
+  kind: ReplicationController
+  metadata:
+    annotations:
+      openshift.io/deployer-pod.completed-at: 2018-02-13 11:27:51 -0500 EST
+      openshift.io/deployer-pod.created-at: 2018-02-13 11:27:29 -0500 EST
+      openshift.io/deployer-pod.name: parksmap-web-1-deploy
+      openshift.io/deployment-config.latest-version: "1"
+      openshift.io/deployment-config.name: parksmap-web
+      openshift.io/deployment.phase: Complete
+      openshift.io/deployment.replicas: "1"
+      openshift.io/deployment.status-reason: manual change
+      openshift.io/encoded-deployment-config: |
+        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"parksmap-web","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/parksmap-web","uid":"7e91d69e-10a8-11e8-b14d-5254006d9087","resourceVersion":"3357840","generation":7,"creationTimestamp":"2018-02-13T10:27:29Z","labels":{"app":"parksmap-web"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%"},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["parksmap-web"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"parksmap-web:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/parksmap-web@sha256:bbb8750617ce0281a2c2bd4e789aac68369da1228bc59a795fc3126cd75b1469"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"parksmap-web","deploymentconfig":"parksmap-web"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"parksmap-web","deploymentconfig":"parksmap-web"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"parksmap-web","image":"docker-registry.default.svc:5000/mitzicom-dev/parksmap-web@sha256:bbb8750617ce0281a2c2bd4e789aac68369da1228bc59a795fc3126cd75b1469","resources":{},"livenessProbe":{"httpGet":{"path":"/ws/backends/list/","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz/","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":1,"observedGeneration":6,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T10:27:29Z","lastTransitionTime":"2018-02-13T10:27:29Z","message":"Deployment config does not have minimum availability."}]}}
+      openshift.io/jenkins-build-uri: https://jenkins-jenkins.apps.46.4.112.21.xip.io/job/MitziCom%20-%20parksmap-web/2/
+    creationTimestamp: null
+    generation: 1
+    labels:
+      app: parksmap-web
+      openshift.io/deployment-config.name: parksmap-web
+    name: parksmap-web-1
+    ownerReferences:
+    - apiVersion: apps.openshift.io/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: DeploymentConfig
+      name: parksmap-web
+      uid: 7e91d69e-10a8-11e8-b14d-5254006d9087
+  spec:
+    replicas: 1
+    selector:
+      app: parksmap-web
+      deployment: parksmap-web-1
+      deploymentconfig: parksmap-web
+    template:
+      metadata:
+        annotations:
+          openshift.io/deployment-config.latest-version: "1"
+          openshift.io/deployment-config.name: parksmap-web
+          openshift.io/deployment.name: parksmap-web-1
+          openshift.io/generated-by: OpenShiftNewApp
+        creationTimestamp: null
+        labels:
+          app: parksmap-web
+          deployment: parksmap-web-1
+          deploymentconfig: parksmap-web
+      spec:
+        containers:
+        - image: docker-registry.default.svc:5000/mitzicom-dev/parksmap-web@sha256:bbb8750617ce0281a2c2bd4e789aac68369da1228bc59a795fc3126cd75b1469
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/backends/list/
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          name: parksmap-web
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /ws/healthz/
+              port: 8080
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 120
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    replicas: 0
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: null
+    labels:
+      app: parksmap-web
+    name: parksmap-web
+  spec:
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: parksmap-web
+      deploymentconfig: parksmap-web
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
