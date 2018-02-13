@@ -6,7 +6,7 @@ node('maven') {
     stage('Checkout Source') {
         // Get Source Code from SCM (Git) as configured in the Jenkins Project
         // Next line for inline script, "checkout scm" for Jenkinsfile from Gogs
-        git 'http://gogs.gogs.svc:3000/AdvancedOpenshift/ParksMap.git'
+        checkout scm
     }
   
     dir('parksmap-web') {
