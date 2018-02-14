@@ -41,8 +41,6 @@ objects:
           name: jboss-eap70-openshift:1.6
           namespace: openshift
       type: Source
-kind: List
-metadata: {}
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
