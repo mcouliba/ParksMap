@@ -1,7 +1,6 @@
 apiVersion: v1
 kind: Template
 metadata:
-  creationTimestamp: null
   name: parksmap-web-mitzicom
 objects:
 - apiVersion: v1
@@ -9,58 +8,56 @@ objects:
   metadata:
     annotations:
       openshift.io/generated-by: OpenShiftNewApp
-    creationTimestamp: null
-    generation: 1
+    generation: "1"
     labels:
-      app: parksmap-web
-    name: parksmap-web
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
   spec:
-    replicas: 1
-    revisionHistoryLimit: 10
+    replicas: "1"
+    revisionHistoryLimit: "10"
     selector:
-      app: parksmap-web
-      deploymentconfig: parksmap-web
+      app: ${APPLICATION_NAME}
+      deploymentconfig: ${APPLICATION_NAME}
     strategy:
-      activeDeadlineSeconds: 21600
+      activeDeadlineSeconds: "21600"
       resources: {}
       rollingParams:
-        intervalSeconds: 1
+        intervalSeconds: "1"
         maxSurge: 25%
         maxUnavailable: 25%
-        timeoutSeconds: 600
-        updatePeriodSeconds: 1
+        timeoutSeconds: "600"
+        updatePeriodSeconds: "1"
       type: Rolling
     template:
       metadata:
         annotations:
           openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
         labels:
-          app: parksmap-web
-          deploymentconfig: parksmap-web
+          app: ${APPLICATION_NAME}
+          deploymentconfig: ${APPLICATION_NAME}
       spec:
         containers:
-        - image: docker-registry.default.svc:5000/mitzicom-dev/parksmap-web@sha256:bbb8750617ce0281a2c2bd4e789aac68369da1228bc59a795fc3126cd75b1469
+        - image: ' '
           imagePullPolicy: Always
           livenessProbe:
-            failureThreshold: 3
+            failureThreshold: "3"
             httpGet:
               path: /ws/backends/list/
               port: 8080
               scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 120
-          name: parksmap-web
+            periodSeconds: "10"
+            successThreshold: "1"
+            timeoutSeconds: "120"
+          name: ${APPLICATION_NAME}
           readinessProbe:
-            failureThreshold: 3
+            failureThreshold: "3"
             httpGet:
               path: /ws/healthz/
               port: 8080
               scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 120
+            periodSeconds: "10"
+            successThreshold: "1"
+            timeoutSeconds: "120"
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
@@ -68,39 +65,31 @@ objects:
         restartPolicy: Always
         schedulerName: default-scheduler
         securityContext: {}
-        terminationGracePeriodSeconds: 30
+        terminationGracePeriodSeconds: "30"
     test: false
     triggers:
     - imageChangeParams:
         containerNames:
-        - parksmap-web
+        - ${APPLICATION_NAME}
         from:
           kind: ImageStreamTag
-          name: parksmap-web:latest
+          name: ${APPLICATION_NAME}:${IMAGE_TAG}
           namespace: mitzicom-dev
       type: ImageChange
-  status:
-    availableReplicas: 0
-    latestVersion: 0
-    observedGeneration: 0
-    replicas: 0
-    unavailableReplicas: 0
-    updatedReplicas: 0
 - apiVersion: v1
   kind: Service
   metadata:
-    creationTimestamp: null
     labels:
-      app: parksmap-web
-    name: parksmap-web
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
   spec:
     ports:
     - port: 8080
       protocol: TCP
       targetPort: 8080
     selector:
-      app: parksmap-web
-      deploymentconfig: parksmap-web
+      app: ${APPLICATION_NAME}
+      deploymentconfig: ${APPLICATION_NAME}
     sessionAffinity: None
     type: ClusterIP
   status:
@@ -110,45 +99,33 @@ objects:
   metadata:
     annotations:
       openshift.io/host.generated: "true"
-    creationTimestamp: null
     labels:
-      app: parksmap-web
-    name: parksmap-web
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
   spec:
-    host: parksmap-web-mitzicom-dev.apps.46.4.112.21.xip.io
     port:
       targetPort: 8080
     to:
       kind: Service
-      name: parksmap-web
-      weight: 100
+      name: ${APPLICATION_NAME}
+      weight: "100"
     wildcardPolicy: None
-  status:
-    ingress:
-    - conditions:
-      - lastTransitionTime: 2018-02-13T10:30:16Z
-        status: "True"
-        type: Admitted
-      host: parksmap-web-mitzicom-dev.apps.46.4.112.21.xip.io
-      routerName: router
-      wildcardPolicy: None
 - apiVersion: v1
   kind: BuildConfig
   metadata:
     annotations:
       openshift.io/generated-by: OpenShiftNewBuild
-    creationTimestamp: null
     labels:
-      app: parksmap-web
-      build: parksmap-web
-    name: parksmap-web
+      app: ${APPLICATION_NAME}
+      build: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
   spec:
-    failedBuildsHistoryLimit: 5
+    failedBuildsHistoryLimit: "5"
     nodeSelector: null
     output:
       to:
         kind: ImageStreamTag
-        name: parksmap-web:latest
+        name: ${APPLICATION_NAME}:latest
     postCommit: {}
     resources: {}
     runPolicy: Serial
@@ -162,13 +139,15 @@ objects:
           name: redhat-openjdk18-openshift:1.2
           namespace: openshift
       type: Source
-    successfulBuildsHistoryLimit: 5
-    triggers:
-    - github:
-        secret: _VOTvyaUuh90kwpEKyHb
-      type: GitHub
-    - generic:
-        secret: tJKnUhrF3ynT1UxLK_Gk
-      type: Generic
-  status:
-    lastVersion: 0
+    successfulBuildsHistoryLimit: "5"
+parameters:
+- description: The name for the application
+  displayName: Application Name
+  name: APPLICATION_NAME
+  required: true
+  value: "parksmap-web"
+- description:  the image tag for deployment (latest, TestReady, ProdReady).
+  displayName: Image tag
+  name: IMAGE_TAG
+  required: true
+  value: "latest"
