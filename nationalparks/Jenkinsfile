@@ -46,9 +46,9 @@ node('maven') {
             openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'nationalparks', destTag: "TestReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'nationalparks', srcTag: 'latest', verbose: 'false'
         }
         
-        // Deploy the built image to the Development Environment.
-        stage('nationalparks - Deploy to Dev') {
-            openshiftDeploy apiURL: '', authToken: '', depCfg: 'nationalparks', namespace: 'mitzicom-dev', verbose: 'false', waitTime: '', waitUnit: 'sec'
+        // Deploy the built image to the Test Environment.
+        stage('nationalparks - Deploy to Test') {
+            openshiftDeploy apiURL: '', authToken: '', depCfg: 'nationalparks', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
         }
     }
 }
