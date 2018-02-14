@@ -19,26 +19,26 @@ node('maven') {
         
         // Using Maven build the war file
         // Do not run tests in this step
-        stage('Build war - mlbparks') {
+        stage('mlbparks - Build war') {
             sh "${mvnCmd} clean install -DskipTests=true"
         }
         
         // Using Maven run the unit tests
-        stage('Unit Tests - mlbparks') {
+        stage('mlbparks - Unit Tests') {
             // sh "${mvnCmd} test"
         }
         
         // Using Maven call SonarQube for Code Analysis
-        stage('Code Analysis - mlbparks') {
+        stage('mlbparks - Code Analysis') {
             // sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube:9000"
         }
         
-        stage('Publish to Nexus - mlbparks') {
+        stage('mlbparks - Publish to Nexus') {
             // sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3-mco-cicd.apps.bcn.example.opentlc.com/repository/releases"
         }
      
         // Build the OpenShift Image in OpenShift. 
-        stage('Build OpenShift Image - mlbparks') {
+        stage('mlbparks - Build OpenShift Image') {
             sh "mkdir ./builddir"
             sh "cp ./target/ROOT.war ./builddir/ROOT.war"
             sh "oc project mitzicom-dev"
@@ -46,9 +46,9 @@ node('maven') {
             openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "TestReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: 'latest', verbose: 'false'
         }
         
-        // Deploy the built image to the Development Environment.
-        stage('Deploy to Dev - mlbparks') {
-            openshiftDeploy apiURL: '', authToken: '', depCfg: 'mlbparks', namespace: 'mitzicom-dev', verbose: 'false', waitTime: '', waitUnit: 'sec'
+        // Deploy the built image to the Test Environment.
+        stage('mlbparks - Deploy to Test') {
+            openshiftDeploy apiURL: '', authToken: '', depCfg: 'mlbparks', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
         }
     }
 }
