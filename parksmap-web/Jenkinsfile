@@ -46,9 +46,9 @@ node('maven') {
             openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'parksmap-web', destTag: "TestReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'parksmap-web', srcTag: 'latest', verbose: 'false'
         }
         
-        // Deploy the built image to the Development Environment.
-        stage('parksmap-web - Deploy to Dev') {
-            openshiftDeploy apiURL: '', authToken: '', depCfg: 'parksmap-web', namespace: 'mitzicom-dev', verbose: 'false', waitTime: '', waitUnit: 'sec'
+        // Deploy the built image to the Test Environment.
+        stage('parksmap-web - Deploy to Test') {
+            openshiftDeploy apiURL: '', authToken: '', depCfg: 'parksmap-web', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
         }
     }
 }
