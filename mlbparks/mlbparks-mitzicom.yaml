@@ -336,7 +336,7 @@ parameters:
   displayName: Application Name
   name: APPLICATION_NAME
   required: true
-  value: ${APPLICATION_NAME}
+  value: "mlbparks"
 - description:  the image tag for deployment (latest, TestReady, ProdReady).
   displayName: Image tag
   name: IMAGE_TAG
