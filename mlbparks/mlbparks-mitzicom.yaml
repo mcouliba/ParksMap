@@ -5,6 +5,16 @@ metadata:
   name: mlbparks-mitzicom
 objects:
 - apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: ${APPLICATION_NAME}-mongodb
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 1Gi
+- apiVersion: v1
   kind: DeploymentConfig
   metadata:
     annotations:
@@ -12,14 +22,14 @@ objects:
     creationTimestamp: null
     generation: 1
     labels:
-      app: mlbparks
-    name: mlbparks
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
   spec:
     replicas: 1
     revisionHistoryLimit: 10
     selector:
-      app: mlbparks
-      deploymentconfig: mlbparks
+      app: ${APPLICATION_NAME}
+      deploymentconfig: ${APPLICATION_NAME}
     strategy:
       activeDeadlineSeconds: 21600
       resources: {}
@@ -31,8 +41,8 @@ objects:
           execNewPod:
             command:
             - curl
-            - http://mlbparks:8080/ws/data/load
-            containerName: mlbparks
+            - http://${APPLICATION_NAME}:8080/ws/data/load
+            containerName: ${APPLICATION_NAME}
           failurePolicy: Abort
         timeoutSeconds: 600
         updatePeriodSeconds: 1
@@ -43,8 +53,8 @@ objects:
           openshift.io/generated-by: OpenShiftNewApp
         creationTimestamp: null
         labels:
-          app: mlbparks
-          deploymentconfig: mlbparks
+          app: ${APPLICATION_NAME}
+          deploymentconfig: ${APPLICATION_NAME}
       spec:
         containers:
         - env:
@@ -52,28 +62,28 @@ objects:
             valueFrom:
               configMapKeyRef:
                 key: db.host
-                name: mlbparks-config
+                name: ${APPLICATION_NAME}-config
           - name: DB_PORT
             valueFrom:
               configMapKeyRef:
                 key: db.port
-                name: mlbparks-config
+                name: ${APPLICATION_NAME}-config
           - name: DB_USERNAME
             valueFrom:
               configMapKeyRef:
                 key: db.username
-                name: mlbparks-config
+                name: ${APPLICATION_NAME}-config
           - name: DB_PASSWORD
             valueFrom:
               configMapKeyRef:
                 key: db.password
-                name: mlbparks-config
+                name: ${APPLICATION_NAME}-config
           - name: DB_NAME
             valueFrom:
               configMapKeyRef:
                 key: db.name
-                name: mlbparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/mlbparks@sha256:d39f3fac653ae3362cd6c5855eece781d2e6f3beebca70c15bb6f5252e908714
+                name: ${APPLICATION_NAME}-config
+          image: ' '
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3
@@ -84,7 +94,7 @@ objects:
             periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 120
-          name: mlbparks
+          name: ${APPLICATION_NAME}
           readinessProbe:
             failureThreshold: 3
             httpGet:
@@ -106,10 +116,10 @@ objects:
     triggers:
     - imageChangeParams:
         containerNames:
-        - mlbparks
+        - ${APPLICATION_NAME}
         from:
           kind: ImageStreamTag
-          name: mlbparks:latest
+          name: ${APPLICATION_NAME}:${IMAGE_TAG}
           namespace: mitzicom-dev
       type: ImageChange
   status:
@@ -128,14 +138,14 @@ objects:
     creationTimestamp: null
     generation: 1
     labels:
-      app: mlbparks
+      app: ${APPLICATION_NAME}
       template: mongodb-persistent-template
-    name: mlbparks-mongodb
+    name: ${APPLICATION_NAME}-mongodb
   spec:
     replicas: 1
     revisionHistoryLimit: 10
     selector:
-      name: mlbparks-mongodb
+      name: ${APPLICATION_NAME}-mongodb
     strategy:
       activeDeadlineSeconds: 21600
       recreateParams:
@@ -148,8 +158,8 @@ objects:
           openshift.io/generated-by: OpenShiftNewApp
         creationTimestamp: null
         labels:
-          app: mlbparks
-          name: mlbparks-mongodb
+          app: ${APPLICATION_NAME}
+          name: ${APPLICATION_NAME}-mongodb
       spec:
         containers:
         - env:
@@ -157,23 +167,23 @@ objects:
             valueFrom:
               secretKeyRef:
                 key: database-user
-                name: mlbparks-mongodb
+                name: ${APPLICATION_NAME}-mongodb
           - name: MONGODB_PASSWORD
             valueFrom:
               secretKeyRef:
                 key: database-password
-                name: mlbparks-mongodb
+                name: ${APPLICATION_NAME}-mongodb
           - name: MONGODB_ADMIN_PASSWORD
             valueFrom:
               secretKeyRef:
                 key: database-admin-password
-                name: mlbparks-mongodb
+                name: ${APPLICATION_NAME}-mongodb
           - name: MONGODB_DATABASE
             valueFrom:
               secretKeyRef:
                 key: database-name
-                name: mlbparks-mongodb
-          image: registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948
+                name: ${APPLICATION_NAME}-mongodb
+          image: ' '
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -210,16 +220,16 @@ objects:
           terminationMessagePolicy: File
           volumeMounts:
           - mountPath: /var/lib/mongodb/data
-            name: mlbparks-mongodb-data
+            name: ${APPLICATION_NAME}-mongodb-data
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         schedulerName: default-scheduler
         securityContext: {}
         terminationGracePeriodSeconds: 30
         volumes:
-        - name: mlbparks-mongodb-data
+        - name: ${APPLICATION_NAME}-mongodb-data
           persistentVolumeClaim:
-            claimName: mlbparks-mongodb
+            claimName: ${APPLICATION_NAME}-mongodb
     test: false
     triggers:
     - imageChangeParams:
@@ -244,16 +254,16 @@ objects:
   metadata:
     creationTimestamp: null
     labels:
-      app: mlbparks
-    name: mlbparks
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
   spec:
     ports:
     - port: 8080
       protocol: TCP
       targetPort: 8080
     selector:
-      app: mlbparks
-      deploymentconfig: mlbparks
+      app: ${APPLICATION_NAME}
+      deploymentconfig: ${APPLICATION_NAME}
     sessionAffinity: None
     type: ClusterIP
   status:
@@ -266,9 +276,9 @@ objects:
       template.openshift.io/expose-uri: mongodb://{.spec.clusterIP}:{.spec.ports[?(.name=="mongo")].port}
     creationTimestamp: null
     labels:
-      app: mlbparks
+      app: ${APPLICATION_NAME}
       template: mongodb-persistent-template
-    name: mlbparks-mongodb
+    name: ${APPLICATION_NAME}-mongodb
   spec:
     ports:
     - name: mongo
@@ -276,41 +286,69 @@ objects:
       protocol: TCP
       targetPort: 27017
     selector:
-      name: mlbparks-mongodb
+      name: ${APPLICATION_NAME}-mongodb
     sessionAffinity: None
     type: ClusterIP
   status:
     loadBalancer: {}
 - apiVersion: v1
   data:
-    db.host: mlbparks-mongodb.mitzicom-dev.svc
-    db.name: mlbparks
-    db.password: mongodb
-    db.port: "27017"
-    db.username: mongodb
+    db.host: ${APPLICATION_NAME}-mongodb
+    db.name: ${MONGODB_DATABASE}
+    db.password: ${MONGODB_PASSWORD}
+    db.port: 27017
+    db.username: ${MONGODB_USER}
   kind: ConfigMap
   metadata:
     creationTimestamp: null
     labels:
-      app: mlbparks
-    name: mlbparks-config
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-config
 - apiVersion: v1
-  data:
-    database-admin-password: bW9uZ29kYg==
-    database-name: bWxicGFya3M=
-    database-password: bW9uZ29kYg==
-    database-user: bW9uZ29kYg==
   kind: Secret
   metadata:
     annotations:
-      openshift.io/generated-by: OpenShiftNewApp
       template.openshift.io/expose-admin_password: '{.data[''database-admin-password'']}'
       template.openshift.io/expose-database_name: '{.data[''database-name'']}'
       template.openshift.io/expose-password: '{.data[''database-password'']}'
       template.openshift.io/expose-username: '{.data[''database-user'']}'
-    creationTimestamp: null
-    labels:
-      app: mlbparks
-      template: mongodb-persistent-template
-    name: mlbparks-mongodb
-  type: Opaque
+    name: ${APPLICATION_NAME}-mongodb
+  stringData:
+    database-admin-password: ${MONGODB_ADMIN_PASSWORD}
+    database-name: ${MONGODB_DATABASE}
+    database-password: ${MONGODB_PASSWORD}
+    database-user: ${MONGODB_USER}
+parameters:
+- description: The name for the application
+  displayName: Application Name
+  name: APPLICATION_NAME
+  required: true
+  value: ${APPLICATION_NAME}
+- description:  the image tag for deployment (latest, TestReady, ProdReady).
+  displayName: Image tag
+  name: IMAGE_TAG
+  required: true
+  value: "latest"
+- description: Username for MongoDB user that will be used for accessing the database.
+  displayName: MongoDB Connection Username
+  from: user[A-Z0-9]{3}
+  generate: expression
+  name: MONGODB_USER
+  required: true
+- description: Password for the MongoDB connection user.
+  displayName: MongoDB Connection Password
+  from: '[a-zA-Z0-9]{16}'
+  generate: expression
+  name: MONGODB_PASSWORD
+  required: true
+- description: Name of the MongoDB database accessed.
+  displayName: MongoDB Database Name
+  name: MONGODB_DATABASE
+  required: true
+  value: sampledb
+- description: Password for the database admin user.
+  displayName: MongoDB Admin Password
+  from: '[a-zA-Z0-9]{16}'
+  generate: expression
+  name: MONGODB_ADMIN_PASSWORD
+  required: true
