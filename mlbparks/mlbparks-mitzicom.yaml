@@ -20,21 +20,21 @@ objects:
     annotations:
       openshift.io/generated-by: OpenShiftNewApp
     creationTimestamp: null
-    generation: 1
+    generation: "1"
     labels:
       app: ${APPLICATION_NAME}
     name: ${APPLICATION_NAME}
   spec:
-    replicas: 1
-    revisionHistoryLimit: 10
+    replicas: "1"
+    revisionHistoryLimit: "10"
     selector:
       app: ${APPLICATION_NAME}
       deploymentconfig: ${APPLICATION_NAME}
     strategy:
-      activeDeadlineSeconds: 21600
+      activeDeadlineSeconds: "21600"
       resources: {}
       rollingParams:
-        intervalSeconds: 1
+        intervalSeconds: "1"
         maxSurge: 25%
         maxUnavailable: 25%
         post:
@@ -44,8 +44,8 @@ objects:
             - http://${APPLICATION_NAME}:8080/ws/data/load
             containerName: ${APPLICATION_NAME}
           failurePolicy: Abort
-        timeoutSeconds: 600
-        updatePeriodSeconds: 1
+        timeoutSeconds: "600"
+        updatePeriodSeconds: "1"
       type: Rolling
     template:
       metadata:
@@ -86,24 +86,24 @@ objects:
           image: ' '
           imagePullPolicy: Always
           livenessProbe:
-            failureThreshold: 3
+            failureThreshold: "3"
             httpGet:
               path: /ws/info
-              port: 8080
+              port: "8080"
               scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 120
+            periodSeconds: "10"
+            successThreshold: "1"
+            timeoutSeconds: "120"
           name: ${APPLICATION_NAME}
           readinessProbe:
-            failureThreshold: 3
+            failureThreshold: "3"
             httpGet:
               path: /ws/healthz
-              port: 8080
+              port: "8080"
               scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 120
+            periodSeconds: "10"
+            successThreshold: "1"
+            timeoutSeconds: "120"
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
@@ -111,7 +111,7 @@ objects:
         restartPolicy: Always
         schedulerName: default-scheduler
         securityContext: {}
-        terminationGracePeriodSeconds: 30
+        terminationGracePeriodSeconds: "30"
     test: false
     triggers:
     - imageChangeParams:
@@ -122,13 +122,6 @@ objects:
           name: ${APPLICATION_NAME}:${IMAGE_TAG}
           namespace: mitzicom-dev
       type: ImageChange
-  status:
-    availableReplicas: 0
-    latestVersion: 0
-    observedGeneration: 0
-    replicas: 0
-    unavailableReplicas: 0
-    updatedReplicas: 0
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
@@ -136,20 +129,20 @@ objects:
       openshift.io/generated-by: OpenShiftNewApp
       template.alpha.openshift.io/wait-for-ready: "true"
     creationTimestamp: null
-    generation: 1
+    generation: "1"
     labels:
       app: ${APPLICATION_NAME}
       template: mongodb-persistent-template
     name: ${APPLICATION_NAME}-mongodb
   spec:
-    replicas: 1
-    revisionHistoryLimit: 10
+    replicas: "1"
+    revisionHistoryLimit: "10"
     selector:
       name: ${APPLICATION_NAME}-mongodb
     strategy:
-      activeDeadlineSeconds: 21600
+      activeDeadlineSeconds: "21600"
       recreateParams:
-        timeoutSeconds: 600
+        timeoutSeconds: "600"
       resources: {}
       type: Recreate
     template:
@@ -186,16 +179,16 @@ objects:
           image: ' '
           imagePullPolicy: IfNotPresent
           livenessProbe:
-            failureThreshold: 3
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            successThreshold: 1
+            failureThreshold: "3"
+            initialDelaySeconds: "30"
+            periodSeconds: "10"
+            successThreshold: "1"
             tcpSocket:
-              port: 27017
-            timeoutSeconds: 1
+              port: "27017"
+            timeoutSeconds: "1"
           name: mongodb
           ports:
-          - containerPort: 27017
+          - containerPort: "27017"
             protocol: TCP
           readinessProbe:
             exec:
@@ -205,11 +198,11 @@ objects:
               - -c
               - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
                 --eval="quit()"
-            failureThreshold: 3
-            initialDelaySeconds: 3
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
+            failureThreshold: "3"
+            initialDelaySeconds: "3"
+            periodSeconds: "10"
+            successThreshold: "1"
+            timeoutSeconds: "1"
           resources:
             limits:
               memory: 512Mi
@@ -225,7 +218,7 @@ objects:
         restartPolicy: Always
         schedulerName: default-scheduler
         securityContext: {}
-        terminationGracePeriodSeconds: 30
+        terminationGracePeriodSeconds: "30"
         volumes:
         - name: ${APPLICATION_NAME}-mongodb-data
           persistentVolumeClaim:
@@ -243,12 +236,12 @@ objects:
       type: ImageChange
     - type: ConfigChange
   status:
-    availableReplicas: 0
-    latestVersion: 0
-    observedGeneration: 0
-    replicas: 0
-    unavailableReplicas: 0
-    updatedReplicas: 0
+    availableReplicas: "0"
+    latestVersion: "0"
+    observedGeneration: "0"
+    replicas: "0"
+    unavailableReplicas: "0"
+    updatedReplicas: "0"
 - apiVersion: v1
   kind: Service
   metadata:
@@ -258,9 +251,9 @@ objects:
     name: ${APPLICATION_NAME}
   spec:
     ports:
-    - port: 8080
+    - port: "8080"
       protocol: TCP
-      targetPort: 8080
+      targetPort: "8080"
     selector:
       app: ${APPLICATION_NAME}
       deploymentconfig: ${APPLICATION_NAME}
@@ -282,9 +275,9 @@ objects:
   spec:
     ports:
     - name: mongo
-      port: 27017
+      port: "27017"
       protocol: TCP
-      targetPort: 27017
+      targetPort: "27017"
     selector:
       name: ${APPLICATION_NAME}-mongodb
     sessionAffinity: None
@@ -296,7 +289,7 @@ objects:
     db.host: ${APPLICATION_NAME}-mongodb
     db.name: ${MONGODB_DATABASE}
     db.password: ${MONGODB_PASSWORD}
-    db.port: 27017
+    db.port: "27017"
     db.username: ${MONGODB_USER}
   kind: ConfigMap
   metadata:
