@@ -85,7 +85,7 @@ objects:
         - env:
           - envFrom:
             - configMapRef:
-              name: ${APPLICATION_NAME}-config
+                name: ${APPLICATION_NAME}-config
           image: ' '
           imagePullPolicy: Always
           livenessProbe:
