@@ -1,0 +1,69 @@
+// Run this node on a Maven Slave
+// Maven Slaves have JDK and Maven already installed
+node('maven') {
+    def mvnCmd = "mvn -s ../nexus_openshift_settings.xml"
+
+    stage('Checkout Source') {
+        // Get Source Code from SCM (Git) as configured in the Jenkins Project
+        // Next line for inline script, "checkout scm" for Jenkinsfile from Gogs
+        git 'http://gogs.gogs.svc:3000/AdvancedOpenshift/ParksMap.git'
+    }
+  
+    dir('mlbparks') {
+        // The following variables need to be defined at the top level and not inside
+        // the scope of a stage - otherwise they would not be accessible from other stages.
+        // Extract version and other properties from the pom.xml
+        def groupId    = getGroupIdFromPom("pom.xml")
+        def artifactId = getArtifactIdFromPom("pom.xml")
+        def version    = getVersionFromPom("pom.xml")
+        
+        // Using Maven build the war file
+        // Do not run tests in this step
+        stage('Build war - mlbparks') {
+            sh "${mvnCmd} clean install -DskipTests=true"
+        }
+        
+        // Using Maven run the unit tests
+        stage('Unit Tests - mlbparks') {
+            // sh "${mvnCmd} test"
+        }
+        
+        // Using Maven call SonarQube for Code Analysis
+        stage('Code Analysis - mlbparks') {
+            // sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube:9000"
+        }
+        
+        stage('Publish to Nexus - mlbparks') {
+            // sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3-mco-cicd.apps.bcn.example.opentlc.com/repository/releases"
+        }
+     
+        // Build the OpenShift Image in OpenShift. 
+        stage('Build OpenShift Image - mlbparks') {
+            sh "mkdir ./builddir"
+            sh "cp ./target/ROOT.war ./builddir/ROOT.war"
+            sh "oc project mitzicom-dev"
+            sh "oc start-build mlbparks --follow --from-dir=./builddir -n mitzicom-dev"
+            openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "TestReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: 'latest', verbose: 'false'
+        }
+        
+        // Deploy the built image to the Development Environment.
+        stage('Deploy to Dev - mlbparks') {
+            openshiftDeploy apiURL: '', authToken: '', depCfg: 'mlbparks', namespace: 'mitzicom-dev', verbose: 'false', waitTime: '', waitUnit: 'sec'
+        }
+    }
+}
+
+// Convenience Functions to read variables from the pom.xml
+// Do not change anything below this line.
+def getVersionFromPom(pom) {
+  def matcher = readFile(pom) =~ '<version>(.+)</version>'
+  matcher ? matcher[0][1] : null
+}
+def getGroupIdFromPom(pom) {
+  def matcher = readFile(pom) =~ '<groupId>(.+)</groupId>'
+  matcher ? matcher[0][1] : null
+}
+def getArtifactIdFromPom(pom) {
+  def matcher = readFile(pom) =~ '<artifactId>(.+)</artifactId>'
+  matcher ? matcher[0][1] : null
+}
