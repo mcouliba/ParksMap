@@ -27,7 +27,7 @@ objects:
     output:
       to:
         kind: ImageStreamTag
-        name: mlbparks:latest
+        name: ${APPLICATION_NAME}:latest
     postCommit: {}
     resources: {}
     runPolicy: Serial
