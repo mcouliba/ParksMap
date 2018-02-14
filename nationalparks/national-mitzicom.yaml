@@ -1,76 +1,112 @@
 apiVersion: v1
 kind: Template
 metadata:
-  creationTimestamp: null
   name: nationalparks-mitzicom
 objects:
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: ${APPLICATION_NAME}-mongodb
+  spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 1Gi
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    annotations:
+      openshift.io/generated-by: OpenShiftNewBuild
+    labels:
+      app: ${APPLICATION_NAME}
+      build: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    nodeSelector: null
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APPLICATION_NAME}:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      binary: {}
+      type: Binary
+    strategy:
+      sourceStrategy:
+        from:
+          kind: ImageStreamTag
+          name: redhat-openjdk18-openshift:1.2
+          namespace: openshift
+      type: Source
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
     annotations:
       openshift.io/generated-by: OpenShiftNewApp
-    creationTimestamp: null
-    generation: 1
+    generation: "1"
     labels:
-      app: nationalparks
-    name: nationalparks
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
   spec:
-    replicas: 1
-    revisionHistoryLimit: 10
+    replicas: "1"
+    revisionHistoryLimit: "10"
     selector:
-      app: nationalparks
-      deploymentconfig: nationalparks
+      app: ${APPLICATION_NAME}
+      deploymentconfig: ${APPLICATION_NAME}
     strategy:
-      activeDeadlineSeconds: 21600
+      activeDeadlineSeconds: "21600"
       resources: {}
       rollingParams:
-        intervalSeconds: 1
+        intervalSeconds: "1"
         maxSurge: 25%
         maxUnavailable: 25%
         post:
           execNewPod:
             command:
             - curl
-            - http://nationalparks-mitzicom-dev.apps.46.4.112.21.xip.io/ws/data/load/
-            containerName: nationalparks
+            - http://${APPLICATION_NAME}:8080/ws/data/load/
+            containerName: ${APPLICATION_NAME}
           failurePolicy: Abort
-        timeoutSeconds: 600
-        updatePeriodSeconds: 1
+        timeoutSeconds: "600"
+        updatePeriodSeconds: "1"
       type: Rolling
     template:
       metadata:
         annotations:
           openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
         labels:
-          app: nationalparks
-          deploymentconfig: nationalparks
+          app: ${APPLICATION_NAME}
+          deploymentconfig: ${APPLICATION_NAME}
       spec:
         containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
+        - env:
+          - envFrom:
+            - configMapRef:
+              name: ${APPLICATION_NAME}-config
+          image: ' '
           imagePullPolicy: Always
           livenessProbe:
-            failureThreshold: 3
+            failureThreshold: "3"
             httpGet:
               path: /ws/info/
               port: 8080
               scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 60
-          name: nationalparks
+            periodSeconds: "10"
+            successThreshold: "1"
+            timeoutSeconds: "120"
+          name: ${APPLICATION_NAME}
           readinessProbe:
-            failureThreshold: 3
+            failureThreshold: "3"
             httpGet:
               path: /ws/healthz/
               port: 8080
               scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 60
+            periodSeconds: "10"
+            successThreshold: "1"
+            timeoutSeconds: "120"
           resources: {}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
@@ -78,55 +114,46 @@ objects:
         restartPolicy: Always
         schedulerName: default-scheduler
         securityContext: {}
-        terminationGracePeriodSeconds: 30
+        terminationGracePeriodSeconds: "30"
     test: false
     triggers:
     - imageChangeParams:
         containerNames:
-        - nationalparks
+        - ${APPLICATION_NAME}
         from:
           kind: ImageStreamTag
-          name: nationalparks:latest
+          name: ${APPLICATION_NAME}:${IMAGE_TAG}
           namespace: mitzicom-dev
       type: ImageChange
-  status:
-    availableReplicas: 0
-    latestVersion: 0
-    observedGeneration: 0
-    replicas: 0
-    unavailableReplicas: 0
-    updatedReplicas: 0
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
     annotations:
       openshift.io/generated-by: OpenShiftNewApp
       template.alpha.openshift.io/wait-for-ready: "true"
-    creationTimestamp: null
-    generation: 1
+    generation: "1"
     labels:
-      app: nationalparks
+      app: ${APPLICATION_NAME}
       template: mongodb-persistent-template
-    name: nationalparks-mongodb
+    name: ${APPLICATION_NAME}-mongodb
   spec:
-    replicas: 1
-    revisionHistoryLimit: 10
+    replicas: "1"
+    revisionHistoryLimit: "10"
     selector:
-      name: nationalparks-mongodb
+      name: ${APPLICATION_NAME}-mongodb
     strategy:
-      activeDeadlineSeconds: 21600
+      activeDeadlineSeconds: "21600"
       recreateParams:
-        timeoutSeconds: 600
+        timeoutSeconds: "600"
       resources: {}
       type: Recreate
     template:
       metadata:
         annotations:
           openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
         labels:
-          app: nationalparks
-          name: nationalparks-mongodb
+          app: ${APPLICATION_NAME}
+          name: ${APPLICATION_NAME}-mongodb
       spec:
         containers:
         - env:
@@ -134,32 +161,32 @@ objects:
             valueFrom:
               secretKeyRef:
                 key: database-user
-                name: nationalparks-mongodb
+                name: ${APPLICATION_NAME}-mongodb
           - name: MONGODB_PASSWORD
             valueFrom:
               secretKeyRef:
                 key: database-password
-                name: nationalparks-mongodb
+                name: ${APPLICATION_NAME}-mongodb
           - name: MONGODB_ADMIN_PASSWORD
             valueFrom:
               secretKeyRef:
                 key: database-admin-password
-                name: nationalparks-mongodb
+                name: ${APPLICATION_NAME}-mongodb
           - name: MONGODB_DATABASE
             valueFrom:
               secretKeyRef:
                 key: database-name
-                name: nationalparks-mongodb
-          image: registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948
+                name: ${APPLICATION_NAME}-mongodb
+          image: ' '
           imagePullPolicy: IfNotPresent
           livenessProbe:
-            failureThreshold: 3
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            successThreshold: 1
+            failureThreshold: "3"
+            initialDelaySeconds: "30"
+            periodSeconds: "10"
+            successThreshold: "1"
             tcpSocket:
               port: 27017
-            timeoutSeconds: 1
+            timeoutSeconds: "1"
           name: mongodb
           ports:
           - containerPort: 27017
@@ -172,11 +199,11 @@ objects:
               - -c
               - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
                 --eval="quit()"
-            failureThreshold: 3
-            initialDelaySeconds: 3
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
+            failureThreshold: "3"
+            initialDelaySeconds: "3"
+            periodSeconds: "10"
+            successThreshold: "1"
+            timeoutSeconds: "1"
           resources:
             limits:
               memory: 512Mi
@@ -187,16 +214,16 @@ objects:
           terminationMessagePolicy: File
           volumeMounts:
           - mountPath: /var/lib/mongodb/data
-            name: nationalparks-mongodb-data
+            name: ${APPLICATION_NAME}-mongodb-data
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         schedulerName: default-scheduler
         securityContext: {}
-        terminationGracePeriodSeconds: 30
+        terminationGracePeriodSeconds: "30"
         volumes:
-        - name: nationalparks-mongodb-data
+        - name: ${APPLICATION_NAME}-mongodb-data
           persistentVolumeClaim:
-            claimName: nationalparks-mongodb
+            claimName: ${APPLICATION_NAME}-mongodb
     test: false
     triggers:
     - imageChangeParams:
@@ -209,1257 +236,20 @@ objects:
           namespace: openshift
       type: ImageChange
     - type: ConfigChange
-  status:
-    availableReplicas: 0
-    latestVersion: 0
-    observedGeneration: 0
-    replicas: 0
-    unavailableReplicas: 0
-    updatedReplicas: 0
-- apiVersion: v1
-  kind: Route
-  metadata:
-    annotations:
-      openshift.io/host.generated: "true"
-    creationTimestamp: null
-    labels:
-      app: nationalparks
-    name: nationalparks
-  spec:
-    host: nationalparks-mitzicom-dev.apps.46.4.112.21.xip.io
-    port:
-      targetPort: 8080
-    to:
-      kind: Service
-      name: nationalparks
-      weight: 100
-    wildcardPolicy: None
-  status:
-    ingress:
-    - conditions:
-      - lastTransitionTime: 2018-02-13T15:22:51Z
-        status: "True"
-        type: Admitted
-      host: nationalparks-mitzicom-dev.apps.46.4.112.21.xip.io
-      routerName: router
-      wildcardPolicy: None
-- apiVersion: v1
-  kind: Pod
-  metadata:
-    annotations:
-      kubernetes.io/created-by: |
-        {"kind":"SerializedReference","apiVersion":"v1","reference":{"kind":"ReplicationController","namespace":"mitzicom-dev","name":"nationalparks-11","uid":"5fc8e181-10d4-11e8-b14d-5254006d9087","apiVersion":"v1","resourceVersion":"3349860"}}
-      openshift.io/deployment-config.latest-version: "11"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.name: nationalparks-11
-      openshift.io/generated-by: OpenShiftNewApp
-      openshift.io/scc: restricted
-    creationTimestamp: null
-    generateName: nationalparks-11-
-    labels:
-      app: nationalparks
-      deployment: nationalparks-11
-      deploymentconfig: nationalparks
-    ownerReferences:
-    - apiVersion: v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: ReplicationController
-      name: nationalparks-11
-      uid: 5fc8e181-10d4-11e8-b14d-5254006d9087
-  spec:
-    containers:
-    - envFrom:
-      - configMapRef:
-          name: nationalparks-config
-      image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-      imagePullPolicy: Always
-      livenessProbe:
-        failureThreshold: 3
-        httpGet:
-          path: /ws/info/
-          port: 8080
-          scheme: HTTP
-        periodSeconds: 10
-        successThreshold: 1
-        timeoutSeconds: 60
-      name: nationalparks
-      readinessProbe:
-        failureThreshold: 3
-        httpGet:
-          path: /ws/healthz/
-          port: 8080
-          scheme: HTTP
-        periodSeconds: 10
-        successThreshold: 1
-        timeoutSeconds: 60
-      resources: {}
-      securityContext:
-        capabilities:
-          drop:
-          - KILL
-          - MKNOD
-          - SETGID
-          - SETUID
-        privileged: false
-        runAsUser: 1000170000
-        seLinuxOptions:
-          level: s0:c13,c7
-      terminationMessagePath: /dev/termination-log
-      terminationMessagePolicy: File
-      volumeMounts:
-      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-        name: default-token-fbbjk
-        readOnly: true
-    dnsPolicy: ClusterFirst
-    imagePullSecrets:
-    - name: default-dockercfg-fhmvw
-    nodeName: node01
-    nodeSelector:
-      purpose: work
-    restartPolicy: Always
-    schedulerName: default-scheduler
-    securityContext:
-      fsGroup: 1000170000
-      seLinuxOptions:
-        level: s0:c13,c7
-    serviceAccount: default
-    serviceAccountName: default
-    terminationGracePeriodSeconds: 30
-    volumes:
-    - name: default-token-fbbjk
-      secret:
-        defaultMode: 420
-        secretName: default-token-fbbjk
-  status:
-    phase: Pending
-    qosClass: BestEffort
-- apiVersion: v1
-  kind: Pod
-  metadata:
-    annotations:
-      kubernetes.io/created-by: |
-        {"kind":"SerializedReference","apiVersion":"v1","reference":{"kind":"ReplicationController","namespace":"mitzicom-dev","name":"nationalparks-mongodb-1","uid":"6ff87d2f-10ad-11e8-ad2b-5254001ff7d1","apiVersion":"v1","resourceVersion":"3301346"}}
-      openshift.io/deployment-config.latest-version: "1"
-      openshift.io/deployment-config.name: nationalparks-mongodb
-      openshift.io/deployment.name: nationalparks-mongodb-1
-      openshift.io/generated-by: OpenShiftNewApp
-      openshift.io/scc: restricted
-    creationTimestamp: null
-    generateName: nationalparks-mongodb-1-
-    labels:
-      app: nationalparks
-      deployment: nationalparks-mongodb-1
-      deploymentconfig: nationalparks-mongodb
-      name: nationalparks-mongodb
-    ownerReferences:
-    - apiVersion: v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: ReplicationController
-      name: nationalparks-mongodb-1
-      uid: 6ff87d2f-10ad-11e8-ad2b-5254001ff7d1
-  spec:
-    containers:
-    - env:
-      - name: MONGODB_USER
-        valueFrom:
-          secretKeyRef:
-            key: database-user
-            name: nationalparks-mongodb
-      - name: MONGODB_PASSWORD
-        valueFrom:
-          secretKeyRef:
-            key: database-password
-            name: nationalparks-mongodb
-      - name: MONGODB_ADMIN_PASSWORD
-        valueFrom:
-          secretKeyRef:
-            key: database-admin-password
-            name: nationalparks-mongodb
-      - name: MONGODB_DATABASE
-        valueFrom:
-          secretKeyRef:
-            key: database-name
-            name: nationalparks-mongodb
-      image: registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948
-      imagePullPolicy: IfNotPresent
-      livenessProbe:
-        failureThreshold: 3
-        initialDelaySeconds: 30
-        periodSeconds: 10
-        successThreshold: 1
-        tcpSocket:
-          port: 27017
-        timeoutSeconds: 1
-      name: mongodb
-      ports:
-      - containerPort: 27017
-        protocol: TCP
-      readinessProbe:
-        exec:
-          command:
-          - /bin/sh
-          - -i
-          - -c
-          - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
-            --eval="quit()"
-        failureThreshold: 3
-        initialDelaySeconds: 3
-        periodSeconds: 10
-        successThreshold: 1
-        timeoutSeconds: 1
-      resources:
-        limits:
-          memory: 512Mi
-        requests:
-          memory: 512Mi
-      securityContext:
-        capabilities:
-          drop:
-          - KILL
-          - MKNOD
-          - SETGID
-          - SETUID
-        privileged: false
-        runAsUser: 1000170000
-        seLinuxOptions:
-          level: s0:c13,c7
-      terminationMessagePath: /dev/termination-log
-      terminationMessagePolicy: File
-      volumeMounts:
-      - mountPath: /var/lib/mongodb/data
-        name: nationalparks-mongodb-data
-      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-        name: default-token-fbbjk
-        readOnly: true
-    dnsPolicy: ClusterFirst
-    imagePullSecrets:
-    - name: default-dockercfg-fhmvw
-    nodeName: node01
-    nodeSelector:
-      purpose: work
-    restartPolicy: Always
-    schedulerName: default-scheduler
-    securityContext:
-      fsGroup: 1000170000
-      seLinuxOptions:
-        level: s0:c13,c7
-    serviceAccount: default
-    serviceAccountName: default
-    terminationGracePeriodSeconds: 30
-    volumes:
-    - name: nationalparks-mongodb-data
-      persistentVolumeClaim:
-        claimName: nationalparks-mongodb
-    - name: default-token-fbbjk
-      secret:
-        defaultMode: 420
-        secretName: default-token-fbbjk
-  status:
-    phase: Pending
-    qosClass: Burstable
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      kubectl.kubernetes.io/desired-replicas: "1"
-      openshift.io/deployer-pod.created-at: 2018-02-13 09:53:50 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-1-deploy
-      openshift.io/deployment-config.latest-version: "1"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.cancelled: "true"
-      openshift.io/deployment.phase: Failed
-      openshift.io/deployment.replicas: "0"
-      openshift.io/deployment.status-reason: The deployment was cancelled by the user
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3340847","generation":9,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://nationalparks:8080/ws/data/load"],"containerName":"nationalparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":1,"observedGeneration":8,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T10:27:25Z","lastTransitionTime":"2018-02-13T10:27:25Z","message":"Deployment config does not have minimum availability."}]}}
-      openshift.io/jenkins-build-uri: https://jenkins-jenkins.apps.46.4.112.21.xip.io/job/MitziCom%20-%20nationalparks/4/
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-1
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 0
-    selector:
-      app: nationalparks
-      deployment: nationalparks-1
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "1"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-1
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-1
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /healthz
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
-          name: nationalparks
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /healthz
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      openshift.io/deployer-pod.completed-at: 2018-02-13 10:40:51 -0500 EST
-      openshift.io/deployer-pod.created-at: 2018-02-13 10:38:51 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-10-deploy
-      openshift.io/deployment-config.latest-version: "10"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.cancelled: "true"
-      openshift.io/deployment.phase: Failed
-      openshift.io/deployment.replicas: "0"
-      openshift.io/deployment.status-reason: The deployment was cancelled by the user
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3349248","generation":33,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://nationalparks.mitzicom-dev.svc/ws/data/load/"],"containerName":"nationalparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info/","port":8080,"scheme":"HTTP"},"timeoutSeconds":60,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz/","port":8080,"scheme":"HTTP"},"timeoutSeconds":60,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":10,"observedGeneration":32,"replicas":1,"updatedReplicas":0,"availableReplicas":1,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T15:33:53Z","lastTransitionTime":"2018-02-13T15:33:53Z","reason":"ProgressDeadlineExceeded","message":"replication controller \"nationalparks-9\" has failed progressing"},{"type":"Available","status":"True","lastUpdateTime":"2018-02-13T15:33:56Z","lastTransitionTime":"2018-02-13T15:33:56Z","message":"Deployment config has minimum availability."}],"readyReplicas":1}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-10
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 0
-    selector:
-      app: nationalparks
-      deployment: nationalparks-10
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "10"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-10
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-10
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/info/
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 60
-          name: nationalparks
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/healthz/
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 60
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      openshift.io/deployer-pod.completed-at: 2018-02-13 10:42:02 -0500 EST
-      openshift.io/deployer-pod.created-at: 2018-02-13 10:41:36 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-11-deploy
-      openshift.io/deployment-config.latest-version: "11"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.phase: Complete
-      openshift.io/deployment.replicas: ""
-      openshift.io/deployment.status-reason: manual change
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3349837","generation":35,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://nationalparks-mitzicom-dev.apps.46.4.112.21.xip.io/ws/data/load/"],"containerName":"nationalparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info/","port":8080,"scheme":"HTTP"},"timeoutSeconds":60,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz/","port":8080,"scheme":"HTTP"},"timeoutSeconds":60,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":11,"observedGeneration":34,"replicas":1,"updatedReplicas":0,"availableReplicas":1,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T15:40:52Z","lastTransitionTime":"2018-02-13T15:40:52Z","reason":"RolloutCancelled","message":"rollout of replication controller \"nationalparks-10\" was cancelled"},{"type":"Available","status":"True","lastUpdateTime":"2018-02-13T15:40:54Z","lastTransitionTime":"2018-02-13T15:40:54Z","message":"Deployment config has minimum availability."}],"readyReplicas":1}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-11
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 1
-    selector:
-      app: nationalparks
-      deployment: nationalparks-11
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "11"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-11
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-11
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/info/
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 60
-          name: nationalparks
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/healthz/
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 60
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      kubectl.kubernetes.io/desired-replicas: "1"
-      openshift.io/deployer-pod.completed-at: 2018-02-13 10:00:38 -0500 EST
-      openshift.io/deployer-pod.created-at: 2018-02-13 09:57:23 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-2-deploy
-      openshift.io/deployment-config.latest-version: "2"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.cancelled: "true"
-      openshift.io/deployment.phase: Failed
-      openshift.io/deployment.replicas: "0"
-      openshift.io/deployment.status-reason: The deployment was cancelled by the user
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3341542","generation":13,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://nationalparks.mitzicom-dev.svc:8080/ws/data/load"],"containerName":"nationalparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":120,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":2,"observedGeneration":12,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T10:27:25Z","lastTransitionTime":"2018-02-13T10:27:25Z","message":"Deployment config does not have minimum availability."},{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T14:57:19Z","lastTransitionTime":"2018-02-13T14:57:19Z","reason":"RolloutCancelled","message":"rollout of replication controller \"nationalparks-1\" was cancelled"}]}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-2
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 0
-    selector:
-      app: nationalparks
-      deployment: nationalparks-2
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "2"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-2
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-2
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/info
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 120
-          name: nationalparks
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/healthz
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 120
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      kubectl.kubernetes.io/desired-replicas: "1"
-      openshift.io/deployer-pod.completed-at: 2018-02-13 10:00:53 -0500 EST
-      openshift.io/deployer-pod.created-at: 2018-02-13 10:00:41 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-3-deploy
-      openshift.io/deployment-config.latest-version: "3"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.phase: Failed
-      openshift.io/deployment.replicas: "0"
-      openshift.io/deployment.status-reason: manual change
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3342176","generation":15,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://nationalparks.mitzicom-dev.svc:8080/ws/data/load"],"containerName":"nationalparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":3,"observedGeneration":14,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T10:27:25Z","lastTransitionTime":"2018-02-13T10:27:25Z","message":"Deployment config does not have minimum availability."},{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T15:00:39Z","lastTransitionTime":"2018-02-13T15:00:39Z","reason":"RolloutCancelled","message":"rollout of replication controller \"nationalparks-2\" was cancelled"}]}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-3
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 0
-    selector:
-      app: nationalparks
-      deployment: nationalparks-3
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "3"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-3
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-3
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          name: nationalparks
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      kubectl.kubernetes.io/desired-replicas: "1"
-      openshift.io/deployer-pod.created-at: 2018-02-13 10:03:14 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-4-deploy
-      openshift.io/deployment-config.latest-version: "4"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.cancelled: "true"
-      openshift.io/deployment.phase: Failed
-      openshift.io/deployment.replicas: "0"
-      openshift.io/deployment.status-reason: The deployment was cancelled by the user
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3342666","generation":18,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://nationalparks.mitzicom-dev.svc:8080/ws/data/load"],"containerName":"nationalparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":180,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":180,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":4,"observedGeneration":17,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T15:00:53Z","lastTransitionTime":"2018-02-13T15:00:53Z","reason":"ProgressDeadlineExceeded","message":"replication controller \"nationalparks-3\" has failed progressing"},{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T15:00:54Z","lastTransitionTime":"2018-02-13T15:00:54Z","message":"Deployment config does not have minimum availability."}]}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-4
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 0
-    selector:
-      app: nationalparks
-      deployment: nationalparks-4
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "4"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-4
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-4
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/info
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 180
-          name: nationalparks
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/healthz
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 180
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      kubectl.kubernetes.io/desired-replicas: "1"
-      openshift.io/deployer-pod.completed-at: 2018-02-13 10:14:39 -0500 EST
-      openshift.io/deployer-pod.created-at: 2018-02-13 10:11:10 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-5-deploy
-      openshift.io/deployment-config.latest-version: "5"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.cancelled: "true"
-      openshift.io/deployment.phase: Failed
-      openshift.io/deployment.replicas: "0"
-      openshift.io/deployment.status-reason: The deployment was cancelled by the user
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3344103","generation":19,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://nationalparks.mitzicom-dev.svc:8080/ws/data/load"],"containerName":"nationalparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":180,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":180,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":5,"observedGeneration":18,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T15:00:54Z","lastTransitionTime":"2018-02-13T15:00:54Z","message":"Deployment config does not have minimum availability."},{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T15:11:02Z","lastTransitionTime":"2018-02-13T15:11:02Z","reason":"RolloutCancelled","message":"rollout of replication controller \"nationalparks-4\" was cancelled"}]}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-5
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 0
-    selector:
-      app: nationalparks
-      deployment: nationalparks-5
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "5"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-5
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-5
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/info
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 180
-          name: nationalparks
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/healthz
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 180
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      kubectl.kubernetes.io/desired-replicas: "1"
-      openshift.io/deployer-pod.completed-at: 2018-02-13 10:17:33 -0500 EST
-      openshift.io/deployer-pod.created-at: 2018-02-13 10:14:44 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-6-deploy
-      openshift.io/deployment-config.latest-version: "6"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.cancelled: "true"
-      openshift.io/deployment.phase: Failed
-      openshift.io/deployment.replicas: "0"
-      openshift.io/deployment.status-reason: The deployment was cancelled by the user
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3344781","generation":20,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://nationalparks.mitzicom-dev.svc:8080/ws/data/load"],"containerName":"nationalparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info","port":8080,"scheme":"HTTP"},"timeoutSeconds":180,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz","port":8080,"scheme":"HTTP"},"timeoutSeconds":180,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":6,"observedGeneration":19,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T15:00:54Z","lastTransitionTime":"2018-02-13T15:00:54Z","message":"Deployment config does not have minimum availability."},{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T15:14:40Z","lastTransitionTime":"2018-02-13T15:14:40Z","reason":"RolloutCancelled","message":"rollout of replication controller \"nationalparks-5\" was cancelled"}]}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-6
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 0
-    selector:
-      app: nationalparks
-      deployment: nationalparks-6
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "6"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-6
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-6
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/info
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 180
-          name: nationalparks
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/healthz
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 180
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      kubectl.kubernetes.io/original-replicas: "1"
-      openshift.io/deployer-pod.completed-at: 2018-02-13 10:17:42 -0500 EST
-      openshift.io/deployer-pod.created-at: 2018-02-13 10:17:39 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-7-deploy
-      openshift.io/deployment-config.latest-version: "7"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.phase: Complete
-      openshift.io/deployment.replicas: "1"
-      openshift.io/deployment.status-reason: manual change
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3345363","generation":23,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%"},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":7,"observedGeneration":22,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T15:00:54Z","lastTransitionTime":"2018-02-13T15:00:54Z","message":"Deployment config does not have minimum availability."},{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T15:17:34Z","lastTransitionTime":"2018-02-13T15:17:34Z","reason":"RolloutCancelled","message":"rollout of replication controller \"nationalparks-6\" was cancelled"}]}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-7
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 0
-    selector:
-      app: nationalparks
-      deployment: nationalparks-7
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "7"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-7
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-7
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          name: nationalparks
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      openshift.io/deployer-pod.completed-at: 2018-02-13 10:31:38 -0500 EST
-      openshift.io/deployer-pod.created-at: 2018-02-13 10:31:11 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-8-deploy
-      openshift.io/deployment-config.latest-version: "8"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.phase: Failed
-      openshift.io/deployment.replicas: "0"
-      openshift.io/deployment.status-reason: manual change
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3347728","generation":29,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://nationalparks.mitzicom-dev.svc:8080/ws/data/load/","-n","mitzicom-dev"],"containerName":"nationalparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info/","port":8080,"scheme":"HTTP"},"timeoutSeconds":60,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz/","port":8080,"scheme":"HTTP"},"timeoutSeconds":60,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":8,"observedGeneration":28,"replicas":1,"updatedReplicas":1,"availableReplicas":1,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Available","status":"True","lastUpdateTime":"2018-02-13T15:17:42Z","lastTransitionTime":"2018-02-13T15:17:42Z","message":"Deployment config has minimum availability."},{"type":"Progressing","status":"True","lastUpdateTime":"2018-02-13T15:17:43Z","lastTransitionTime":"2018-02-13T15:17:41Z","reason":"NewReplicationControllerAvailable","message":"replication controller \"nationalparks-7\" successfully rolled out"}],"readyReplicas":1}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-8
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 0
-    selector:
-      app: nationalparks
-      deployment: nationalparks-8
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "8"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-8
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-8
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/info/
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 60
-          name: nationalparks
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/healthz/
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 60
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      openshift.io/deployer-pod.completed-at: 2018-02-13 10:33:52 -0500 EST
-      openshift.io/deployer-pod.created-at: 2018-02-13 10:33:25 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-9-deploy
-      openshift.io/deployment-config.latest-version: "9"
-      openshift.io/deployment-config.name: nationalparks
-      openshift.io/deployment.phase: Failed
-      openshift.io/deployment.replicas: "0"
-      openshift.io/deployment.status-reason: manual change
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks","uid":"7ba7e7cf-10a8-11e8-b14d-5254006d9087","resourceVersion":"3348220","generation":31,"creationTimestamp":"2018-02-13T10:27:24Z","labels":{"app":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"strategy":{"type":"Rolling","rollingParams":{"updatePeriodSeconds":1,"intervalSeconds":1,"timeoutSeconds":600,"maxUnavailable":"25%","maxSurge":"25%","post":{"failurePolicy":"Abort","execNewPod":{"command":["curl","http://nationalparks-mitzicom-dev.apps.46.4.112.21.xip.io/ws/data/load/","-n","mitzicom-dev"],"containerName":"nationalparks"}}},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"containerNames":["nationalparks"],"from":{"kind":"ImageStreamTag","namespace":"mitzicom-dev","name":"nationalparks:latest"},"lastTriggeredImage":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d"}}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"app":"nationalparks","deploymentconfig":"nationalparks"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","deploymentconfig":"nationalparks"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"containers":[{"name":"nationalparks","image":"docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d","envFrom":[{"configMapRef":{"name":"nationalparks-config"}}],"resources":{},"livenessProbe":{"httpGet":{"path":"/ws/info/","port":8080,"scheme":"HTTP"},"timeoutSeconds":60,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"httpGet":{"path":"/ws/healthz/","port":8080,"scheme":"HTTP"},"timeoutSeconds":60,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"Always"}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":9,"observedGeneration":30,"replicas":1,"updatedReplicas":0,"availableReplicas":1,"unavailableReplicas":0,"details":{"message":"manual change","causes":[{"type":"Manual"}]},"conditions":[{"type":"Progressing","status":"False","lastUpdateTime":"2018-02-13T15:31:39Z","lastTransitionTime":"2018-02-13T15:31:39Z","reason":"ProgressDeadlineExceeded","message":"replication controller \"nationalparks-8\" has failed progressing"},{"type":"Available","status":"True","lastUpdateTime":"2018-02-13T15:31:41Z","lastTransitionTime":"2018-02-13T15:31:41Z","message":"Deployment config has minimum availability."}],"readyReplicas":1}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks
-    name: nationalparks-9
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks
-      uid: 7ba7e7cf-10a8-11e8-b14d-5254006d9087
-  spec:
-    replicas: 0
-    selector:
-      app: nationalparks
-      deployment: nationalparks-9
-      deploymentconfig: nationalparks
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "9"
-          openshift.io/deployment-config.name: nationalparks
-          openshift.io/deployment.name: nationalparks-9
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-9
-          deploymentconfig: nationalparks
-      spec:
-        containers:
-        - envFrom:
-          - configMapRef:
-              name: nationalparks-config
-          image: docker-registry.default.svc:5000/mitzicom-dev/nationalparks@sha256:16e860e5d72cabcf27301642e400d9d016b555e32f5a715c68691cc58706eb4d
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/info/
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 60
-          name: nationalparks
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /ws/healthz/
-              port: 8080
-              scheme: HTTP
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 60
-          resources: {}
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-  status:
-    replicas: 0
-- apiVersion: v1
-  kind: ReplicationController
-  metadata:
-    annotations:
-      openshift.io/deployer-pod.completed-at: 2018-02-13 06:03:04 -0500 EST
-      openshift.io/deployer-pod.created-at: 2018-02-13 06:02:53 -0500 EST
-      openshift.io/deployer-pod.name: nationalparks-mongodb-1-deploy
-      openshift.io/deployment-config.latest-version: "1"
-      openshift.io/deployment-config.name: nationalparks-mongodb
-      openshift.io/deployment.phase: Complete
-      openshift.io/deployment.replicas: "1"
-      openshift.io/deployment.status-reason: config change
-      openshift.io/encoded-deployment-config: |
-        {"kind":"DeploymentConfig","apiVersion":"v1","metadata":{"name":"nationalparks-mongodb","namespace":"mitzicom-dev","selfLink":"/apis/apps.openshift.io/v1/namespaces/mitzicom-dev/deploymentconfigs/nationalparks-mongodb","uid":"6fb97a0e-10ad-11e8-b14d-5254006d9087","resourceVersion":"3301323","generation":2,"creationTimestamp":"2018-02-13T11:02:52Z","labels":{"app":"nationalparks","template":"mongodb-persistent-template"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp","template.alpha.openshift.io/wait-for-ready":"true"}},"spec":{"strategy":{"type":"Recreate","recreateParams":{"timeoutSeconds":600},"resources":{},"activeDeadlineSeconds":21600},"triggers":[{"type":"ImageChange","imageChangeParams":{"automatic":true,"containerNames":["mongodb"],"from":{"kind":"ImageStreamTag","namespace":"openshift","name":"mongodb:3.2"},"lastTriggeredImage":"registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948"}},{"type":"ConfigChange"}],"replicas":1,"revisionHistoryLimit":10,"test":false,"selector":{"name":"nationalparks-mongodb"},"template":{"metadata":{"creationTimestamp":null,"labels":{"app":"nationalparks","name":"nationalparks-mongodb"},"annotations":{"openshift.io/generated-by":"OpenShiftNewApp"}},"spec":{"volumes":[{"name":"nationalparks-mongodb-data","persistentVolumeClaim":{"claimName":"nationalparks-mongodb"}}],"containers":[{"name":"mongodb","image":"registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948","ports":[{"containerPort":27017,"protocol":"TCP"}],"env":[{"name":"MONGODB_USER","valueFrom":{"secretKeyRef":{"name":"nationalparks-mongodb","key":"database-user"}}},{"name":"MONGODB_PASSWORD","valueFrom":{"secretKeyRef":{"name":"nationalparks-mongodb","key":"database-password"}}},{"name":"MONGODB_ADMIN_PASSWORD","valueFrom":{"secretKeyRef":{"name":"nationalparks-mongodb","key":"database-admin-password"}}},{"name":"MONGODB_DATABASE","valueFrom":{"secretKeyRef":{"name":"nationalparks-mongodb","key":"database-name"}}}],"resources":{"limits":{"memory":"512Mi"}},"volumeMounts":[{"name":"nationalparks-mongodb-data","mountPath":"/var/lib/mongodb/data"}],"livenessProbe":{"tcpSocket":{"port":27017},"initialDelaySeconds":30,"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"readinessProbe":{"exec":{"command":["/bin/sh","-i","-c","mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD --eval=\"quit()\""]},"initialDelaySeconds":3,"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3},"terminationMessagePath":"/dev/termination-log","terminationMessagePolicy":"File","imagePullPolicy":"IfNotPresent","securityContext":{"capabilities":{},"privileged":false}}],"restartPolicy":"Always","terminationGracePeriodSeconds":30,"dnsPolicy":"ClusterFirst","securityContext":{},"schedulerName":"default-scheduler"}}},"status":{"latestVersion":1,"observedGeneration":2,"replicas":0,"updatedReplicas":0,"availableReplicas":0,"unavailableReplicas":0,"details":{"message":"config change","causes":[{"type":"ConfigChange"}]},"conditions":[{"type":"Available","status":"False","lastUpdateTime":"2018-02-13T11:02:52Z","lastTransitionTime":"2018-02-13T11:02:52Z","message":"Deployment config does not have minimum availability."}]}}
-    creationTimestamp: null
-    generation: 1
-    labels:
-      app: nationalparks
-      openshift.io/deployment-config.name: nationalparks-mongodb
-      template: mongodb-persistent-template
-    name: nationalparks-mongodb-1
-    ownerReferences:
-    - apiVersion: apps.openshift.io/v1
-      blockOwnerDeletion: true
-      controller: true
-      kind: DeploymentConfig
-      name: nationalparks-mongodb
-      uid: 6fb97a0e-10ad-11e8-b14d-5254006d9087
-  spec:
-    replicas: 1
-    selector:
-      deployment: nationalparks-mongodb-1
-      deploymentconfig: nationalparks-mongodb
-      name: nationalparks-mongodb
-    template:
-      metadata:
-        annotations:
-          openshift.io/deployment-config.latest-version: "1"
-          openshift.io/deployment-config.name: nationalparks-mongodb
-          openshift.io/deployment.name: nationalparks-mongodb-1
-          openshift.io/generated-by: OpenShiftNewApp
-        creationTimestamp: null
-        labels:
-          app: nationalparks
-          deployment: nationalparks-mongodb-1
-          deploymentconfig: nationalparks-mongodb
-          name: nationalparks-mongodb
-      spec:
-        containers:
-        - env:
-          - name: MONGODB_USER
-            valueFrom:
-              secretKeyRef:
-                key: database-user
-                name: nationalparks-mongodb
-          - name: MONGODB_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                key: database-password
-                name: nationalparks-mongodb
-          - name: MONGODB_ADMIN_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                key: database-admin-password
-                name: nationalparks-mongodb
-          - name: MONGODB_DATABASE
-            valueFrom:
-              secretKeyRef:
-                key: database-name
-                name: nationalparks-mongodb
-          image: registry.access.redhat.com/rhscl/mongodb-32-rhel7@sha256:2c44d3b3ac7945d58d92f4c53adf32942256883b75799a617da550a602a2e948
-          imagePullPolicy: IfNotPresent
-          livenessProbe:
-            failureThreshold: 3
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            successThreshold: 1
-            tcpSocket:
-              port: 27017
-            timeoutSeconds: 1
-          name: mongodb
-          ports:
-          - containerPort: 27017
-            protocol: TCP
-          readinessProbe:
-            exec:
-              command:
-              - /bin/sh
-              - -i
-              - -c
-              - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
-                --eval="quit()"
-            failureThreshold: 3
-            initialDelaySeconds: 3
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
-          resources:
-            limits:
-              memory: 512Mi
-          securityContext:
-            capabilities: {}
-            privileged: false
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
-          volumeMounts:
-          - mountPath: /var/lib/mongodb/data
-            name: nationalparks-mongodb-data
-        dnsPolicy: ClusterFirst
-        restartPolicy: Always
-        schedulerName: default-scheduler
-        securityContext: {}
-        terminationGracePeriodSeconds: 30
-        volumes:
-        - name: nationalparks-mongodb-data
-          persistentVolumeClaim:
-            claimName: nationalparks-mongodb
-  status:
-    replicas: 0
 - apiVersion: v1
   kind: Service
   metadata:
-    creationTimestamp: null
     labels:
-      app: nationalparks
-    name: nationalparks
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
   spec:
     ports:
     - port: 8080
       protocol: TCP
       targetPort: 8080
     selector:
-      app: nationalparks
-      deploymentconfig: nationalparks
+      app: ${APPLICATION_NAME}
+      deploymentconfig: ${APPLICATION_NAME}
     sessionAffinity: None
     type: ClusterIP
   status:
@@ -1470,11 +260,10 @@ objects:
     annotations:
       openshift.io/generated-by: OpenShiftNewApp
       template.openshift.io/expose-uri: mongodb://{.spec.clusterIP}:{.spec.ports[?(.name=="mongo")].port}
-    creationTimestamp: null
     labels:
-      app: nationalparks
+      app: ${APPLICATION_NAME}
       template: mongodb-persistent-template
-    name: nationalparks-mongodb
+    name: ${APPLICATION_NAME}-mongodb
   spec:
     ports:
     - name: mongo
@@ -1482,8 +271,68 @@ objects:
       protocol: TCP
       targetPort: 27017
     selector:
-      name: nationalparks-mongodb
+      name: ${APPLICATION_NAME}-mongodb
     sessionAffinity: None
     type: ClusterIP
   status:
     loadBalancer: {}
+- apiVersion: v1
+  data:
+    MONGODB_DATABASE: ${MONGODB_DATABASE}
+    MONGODB_PASSWORD: ${MONGODB_DATABASE}
+    MONGODB_SERVER_HOST: ${APPLICATION_NAME}-mongodb
+    MONGODB_SERVER_PORT: "27017"
+    MONGODB_USER: ${MONGODB_USER}
+  kind: ConfigMap
+  metadata:
+    labels:
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-config
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    annotations:
+      template.openshift.io/expose-admin_password: '{.data[''database-admin-password'']}'
+      template.openshift.io/expose-database_name: '{.data[''database-name'']}'
+      template.openshift.io/expose-password: '{.data[''database-password'']}'
+      template.openshift.io/expose-username: '{.data[''database-user'']}'
+    name: ${APPLICATION_NAME}-mongodb
+  stringData:
+    database-admin-password: ${MONGODB_ADMIN_PASSWORD}
+    database-name: ${MONGODB_DATABASE}
+    database-password: ${MONGODB_PASSWORD}
+    database-user: ${MONGODB_USER}
+parameters:
+- description: The name for the application
+  displayName: Application Name
+  name: APPLICATION_NAME
+  required: true
+  value: "nationalparks"
+- description:  the image tag for deployment (latest, TestReady, ProdReady).
+  displayName: Image tag
+  name: IMAGE_TAG
+  required: true
+  value: "latest"
+- description: Username for MongoDB user that will be used for accessing the database.
+  displayName: MongoDB Connection Username
+  from: user[A-Z0-9]{3}
+  generate: expression
+  name: MONGODB_USER
+  required: true
+- description: Password for the MongoDB connection user.
+  displayName: MongoDB Connection Password
+  from: '[a-zA-Z0-9]{16}'
+  generate: expression
+  name: MONGODB_PASSWORD
+  required: true
+- description: Name of the MongoDB database accessed.
+  displayName: MongoDB Database Name
+  name: MONGODB_DATABASE
+  required: true
+  value: sampledb
+- description: Password for the database admin user.
+  displayName: MongoDB Admin Password
+  from: '[a-zA-Z0-9]{16}'
+  generate: expression
+  name: MONGODB_ADMIN_PASSWORD
+  required: true
