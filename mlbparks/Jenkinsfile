@@ -55,7 +55,7 @@ node('maven') {
     	openshiftDeploy apiURL: '', authToken: '', depCfg: 'mlbparks', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
     }
 
-    stage('Integration Test') {
+    stage('mlbparks - Integration Test') {
     	openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "ProdReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: "TestReady", verbose: 'false'
     }
 
@@ -66,7 +66,7 @@ node('maven') {
     // You will need to figure out which application is active and set the target to the other.
     def deployToColor = "mlbparks-blue"
 
-    stage('Prep Production Deployment') {
+    stage('mlbparks - Prep Production Deployment') {
     	sh "oc project mitzicom-prod"
     	def currentColor = sh returnStdout: true, script: 'oc get route mlbparks -o jsonpath=\'{ .spec.to.name }\' -n mitzicom-prod'
     	if (currentColor == "mlbparks-blue") {
@@ -75,12 +75,12 @@ node('maven') {
     }
 
     // Deploy the ProdReady image.
-    stage('Deploy new Version into ' + deployToColor) {
+    stage('mlbparks - Deploy new Version into ' + deployToColor) {
     	openshiftDeploy apiURL: '', authToken: '', depCfg: deployToColor, namespace: 'mitzicom-prod', verbose: 'false', waitTime: '', waitUnit: 'sec'
     }
 
     // Once approved (input step) switch production over to the new version.
-    stage('Switch over to new Version') {
+    stage('mlbparks - Switch over to new Version') {
     	input "Switch Production?"
     	sh "oc patch route/mlbparks -p '{\"spec\":{\"to\":{\"name\":\"$deployToColor\"}}}' -n mitzicom-prod"
     }
