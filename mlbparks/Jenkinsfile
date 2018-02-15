@@ -30,11 +30,11 @@ node('maven') {
         
         // Using Maven call SonarQube for Code Analysis
         stage('mlbparks - Code Analysis') {
-           // sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube-sonarqube.apps.46.4.112.21.xip.io/"
+           sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube:9000"
         }
         
         stage('mlbparks - Publish to Nexus') {
-           // sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3-nexus.apps.46.4.112.21.xip.io/repository/releases"
+           sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3:8081/repository/releases"
         }
      
         // Build the OpenShift Image in OpenShift. 
