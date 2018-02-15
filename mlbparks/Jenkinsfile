@@ -64,7 +64,7 @@ node('maven') {
 		
 		def currentResult2 = sh returnStdout: true, script: 'curl http://mlbparks-mitzicom-test.apps.46.4.112.21.xip.io/ws/data/all'
 		
-		sh "cat ${expectedResult1}"
+		sh "echo ${currentResult1}"
     	
 		openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "ProdReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: "TestReady", verbose: 'false'
     }
