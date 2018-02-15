@@ -3,18 +3,6 @@
 node('maven') {
     def mvnCmd = "mvn -s ../nexus_openshift_settings.xml"
 	
-	stage('mlbparks - Integration Test') {
-		def mlbparksServiceIP = sh returnStdout: true, script: 'oc get svc/mlbparks -o jsonpath=\'{ .spec.clusterIP }\' -n mitzicom-test'
-		
-
-		def expectedResult1 = '{"id":"mlbparks","displayName":"MLB Parks","center":{"latitude":"39.82","longitude":"-98.57"},"zoom":5}'
-		def currentResult1 = sh returnStdout: true, script: "curl http://${mlbparksServiceIP}:8080/ws/info"
-		
-		sh "[ '${expectedResult1}' == '${currentResult1}' ]"
-    	
-		openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "ProdReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: "TestReady", verbose: 'false'
-    }
-
     stage('Checkout Source') {
         // Get Source Code from SCM (Git) as configured in the Jenkins Project
         // Next line for inline script, "checkout scm" for Jenkinsfile from Gogs
@@ -35,16 +23,25 @@ node('maven') {
             sh "${mvnCmd} clean install -DskipTests=true"
         }
         
-        // Using Maven run the unit tests
-        stage('mlbparks - Unit Tests') {
-            sh "${mvnCmd} test"
+		failFast true
+        parallel {
+          // Using Maven run the unit tests
+          stage('mlbparks - Unit Tests') {
+              sh "${mvnCmd} test"
+          }
+
+          // Using Maven call SonarQube for Code Analysis
+          stage('mlbparks - Code Analysis') {
+             sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube.sonarqube.svc:9000"
+          }
         }
-        
-        // Using Maven call SonarQube for Code Analysis
-        stage('mlbparks - Code Analysis') {
-           sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube.sonarqube.svc:9000"
-        }
-        
+		
+		post { 
+          always { 
+              echo 'I will always say Hello again!'
+          }
+    	}
+	
         stage('mlbparks - Publish to Nexus') {
            sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3.nexus.svc:8081/repository/snapshots"
         }
