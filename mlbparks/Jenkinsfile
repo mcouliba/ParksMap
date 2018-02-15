@@ -23,19 +23,18 @@ node('maven') {
             sh "${mvnCmd} clean install -DskipTests=true"
         }
         
-		failFast true
-        parallel {
-          // Using Maven run the unit tests
-          stage('mlbparks - Unit Tests') {
+		parallel failFast: true, firstBranch: {
+            // Using Maven run the unit tests
+          	stage('mlbparks - Unit Tests') {
               sh "${mvnCmd} test"
-          }
-
-          // Using Maven call SonarQube for Code Analysis
-          stage('mlbparks - Code Analysis') {
-             sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube.sonarqube.svc:9000"
-          }
+          	}
+        }, secondBranch: {
+            // Using Maven call SonarQube for Code Analysis
+          	stage('mlbparks - Code Analysis') {
+             	sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube.sonarqube.svc:9000"
+          	}
         }
-		
+    
 		post { 
 			always { 
 				junit 'target/surefire-reports/*.xml'
