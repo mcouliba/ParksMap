@@ -2,6 +2,18 @@
 // Maven Slaves have JDK and Maven already installed
 node('maven') {
     def mvnCmd = "mvn -s ../nexus_openshift_settings.xml"
+	
+	stage('mlbparks - Integration Test') {
+		def mlbparksServiceIP = sh returnStdout: true, script: 'oc get svc/mlbparks -o jsonpath=\'{ .spec.clusterIP }\' -n mitzicom-test'
+		
+
+		def expectedResult1 = '{"id":"mlbparks","displayName":"MLB Parks","center":{"latitude":"39.82","longitude":"-98.57"},"zoom":5}'
+		def currentResult1 = sh returnStdout: true, script: "curl http://${mlbparksServiceIP}:8080/ws/info"
+		
+		sh "[ '${expectedResult1}' == '${currentResult1}' ]"
+    	
+		openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "ProdReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: "TestReady", verbose: 'false'
+    }
 
     stage('Checkout Source') {
         // Get Source Code from SCM (Git) as configured in the Jenkins Project
@@ -64,7 +76,7 @@ node('maven') {
 		def expectedResult1 = '{"id":"mlbparks","displayName":"MLB Parks","center":{"latitude":"39.82","longitude":"-98.57"},"zoom":5}'
 		def currentResult1 = sh returnStdout: true, script: "curl http://${mlbparksServiceIP}:8080/ws/info"
 		
-		//sh "[ \"${expectedResult1}\" == \"${currentResult1}\" ]"
+		sh "[ '${expectedResult1}' == '${currentResult1}' ]"
     	
 		openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "ProdReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: "TestReady", verbose: 'false'
     }
