@@ -59,6 +59,9 @@ node('maven') {
 
     stage('mlbparks - Integration Test') {
 		def mlbparksServiceIP = sh returnStdout: true, script: 'oc get svc/mlbparks -o jsonpath=\'{ .spec.clusterIP }\' -n mitzicom-test'
+		
+		sh "echo ${mlbparksServiceIP}"
+		sh "echo $mlbparksServiceIP"
 
 		def expectedResult1 = '{"id":"mlbparks","displayName":"MLB Parks","center":{"latitude":"39.82","longitude":"-98.57"},"zoom":5}'
 		def currentResult1 = sh returnStdout: true, script: 'curl http://${mlbparksServiceIP}:8080/ws/info'
