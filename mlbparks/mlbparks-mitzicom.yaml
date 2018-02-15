@@ -148,6 +148,22 @@ objects:
           namespace: mitzicom-dev
       type: ImageChange
 - apiVersion: v1
+  kind: Route
+  metadata:
+    annotations:
+      openshift.io/host.generated: "true"
+    labels:
+      app: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}
+  spec:
+    port:
+      targetPort: 8080
+    to:
+      kind: Service
+      name: ${APPLICATION_NAME}
+      weight: "100"
+    wildcardPolicy: None
+- apiVersion: v1
   kind: DeploymentConfig
   metadata:
     annotations:
