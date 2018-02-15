@@ -37,10 +37,10 @@ node('maven') {
         }
 		
 		post { 
-          always { 
-              echo 'I will always say Hello again!'
-          }
-    	}
+			always { 
+				junit 'target/surefire-reports/*.xml'
+			}
+		}
 	
         stage('mlbparks - Publish to Nexus') {
            sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3.nexus.svc:8081/repository/snapshots"
