@@ -31,7 +31,9 @@ node('maven') {
         }, secondBranch: {
             // Using Maven call SonarQube for Code Analysis
           	stage('mlbparks - Code Analysis') {
-             	sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube.sonarqube.svc:9000"
+				withSonarQubeEnv('Openshift - SonarQube') {
+             		sh "${mvnCmd} sonar:sonar"
+				}
           	}
         }
     	
