@@ -53,6 +53,8 @@ node('maven') {
     // Deploy the built image to the Test Environment.
     stage('mlbparks - Deploy to Test') {
     	openshiftDeploy apiURL: '', authToken: '', depCfg: 'mlbparks', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
+		openshiftVerifyDeployment depCfg: 'mlbparks', namespace: 'mitzicom-test', replicaCount: '1', verbose: 'false', verifyReplicaCount: 'false', waitTime: '', waitUnit: 'sec'
+    openshiftVerifyService namespace: 'mitzicom-test', svcName: 'mlbparks', verbose: 'false'
     }
 
     stage('mlbparks - Integration Test') {
