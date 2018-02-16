@@ -59,10 +59,7 @@ objects:
     strategy:
       activeDeadlineSeconds: "21600"
       resources: {}
-      rollingParams:
-        intervalSeconds: "1"
-        maxSurge: 25%
-        maxUnavailable: 25%
+      recreateParams:
         post:
           execNewPod:
             command:
@@ -71,8 +68,7 @@ objects:
             containerName: ${APPLICATION_NAME}
           failurePolicy: Abort
         timeoutSeconds: "600"
-        updatePeriodSeconds: "1"
-      type: Rolling
+      type: Recreate
     template:
       metadata:
         annotations:

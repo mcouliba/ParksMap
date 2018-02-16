@@ -1,119 +1,121 @@
 // Run this node on a Maven Slave
 // Maven Slaves have JDK and Maven already installed
 node('maven') {
-    def mvnCmd = "mvn -s ../nexus_openshift_settings.xml"
+	def mvnCmd = "mvn -s ../nexus_openshift_settings.xml"
 	
-    stage('Checkout Source') {
-        // Get Source Code from SCM (Git) as configured in the Jenkins Project
-        // Next line for inline script, "checkout scm" for Jenkinsfile from Gogs
-        checkout scm
-    }
-  
-    dir('mlbparks') {
-        // The following variables need to be defined at the top level and not inside
-        // the scope of a stage - otherwise they would not be accessible from other stages.
-        // Extract version and other properties from the pom.xml
-        def groupId    = getGroupIdFromPom("pom.xml")
-        def artifactId = getArtifactIdFromPom("pom.xml")
-        def version    = getVersionFromPom("pom.xml")
-        
-        // Using Maven build the war file
-        // Do not run tests in this step
-        stage('mlbparks - Build war') {
-            sh "${mvnCmd} clean package -DskipTests=true"
-        }
-        
+	stage('Checkout Source') {
+		// Get Source Code from SCM (Git) as configured in the Jenkins Project
+		// Next line for inline script, "checkout scm" for Jenkinsfile from Gogs
+		checkout scm
+	}
+
+	dir('mlbparks') {
+		// The following variables need to be defined at the top level and not inside
+		// the scope of a stage - otherwise they would not be accessible from other stages.
+		// Extract version and other properties from the pom.xml
+		def groupId	= getGroupIdFromPom("pom.xml")
+		def artifactId = getArtifactIdFromPom("pom.xml")
+		def version	= getVersionFromPom("pom.xml")
+		
+		// Using Maven build the war file
+		// Do not run tests in this step
+		stage('Build war') {
+			sh "${mvnCmd} clean package -DskipTests=true"
+		}
+		
 		parallel failFast: true, firstBranch: {
-            // Using Maven run the unit tests
-          	stage('mlbparks - Unit Tests') {
-              sh "${mvnCmd} test -P unit-tests"
-          	}
-        }, secondBranch: {
-            // Using Maven call SonarQube for Code Analysis
-          	stage('mlbparks - Code Analysis') {
+			// Using Maven run the unit tests
+		  	stage('Unit Tests') {
+			  sh "${mvnCmd} test -P unit-tests"
+		  	}
+		}, secondBranch: {
+			// Using Maven call SonarQube for Code Analysis
+		  	stage('Code Analysis') {
 				withSonarQubeEnv('Openshift - SonarQube') {
-             		sh "${mvnCmd} sonar:sonar"
+			 		sh "${mvnCmd} sonar:sonar"
 				}
-          	}
-        }
-    	
-		stage('mlbparks - Generate Unit Tests Report') {
-            junit 'target/surefire-reports/TEST-unittest.*.xml'
-        }
+		  	}
+		}
+		
+		stage(' Generate Unit Tests Report') {
+			junit 'target/surefire-reports/TEST-unittest.*.xml'
+		}
 	
-        stage('mlbparks - Publish to Nexus') {
-           sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3.nexus.svc:8081/repository/snapshots"
-        }
-     
-        // Build the OpenShift Image in OpenShift. 
-        stage('mlbparks - Build OpenShift Image') {
-            sh "mkdir ./builddir"
-            sh "cp ./target/ROOT.war ./builddir/ROOT.war"
-            sh "oc project mitzicom-dev"
-            sh "oc start-build mlbparks --follow --from-dir=./builddir -n mitzicom-dev"
-            openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "TestReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: 'latest', verbose: 'false'
-        }
-    }
+		stage(' Publish to Nexus') {
+		   sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3.nexus.svc:8081/repository/snapshots"
+		}
+	 
+		// Build the OpenShift Image in OpenShift. 
+		stage(' Build OpenShift Image') {
+			sh "mkdir ./builddir"
+			sh "cp ./target/ROOT.war ./builddir/ROOT.war"
+			sh "oc project mitzicom-dev"
+			sh "oc start-build mlbparks --follow --from-dir=./builddir -n mitzicom-dev"
+			openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "TestReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: 'latest', verbose: 'false'
+		}
+	}
 
-    // Deployment into Test
-    // -------------------------------------
+	// Deployment into Test
+	// -------------------------------------
 
-    // Deploy the built image to the Test Environment.
-    stage('mlbparks - Deploy to Test') {
-    	openshiftDeploy apiURL: '', authToken: '', depCfg: 'mlbparks', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
+	// Deploy the built image to the Test Environment.
+	stage(' Deploy to Test') {
+		openshiftDeploy apiURL: '', authToken: '', depCfg: 'mlbparks', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
 		openshiftVerifyDeployment depCfg: 'mlbparks', namespace: 'mitzicom-test', replicaCount: '1', verbose: 'false', verifyReplicaCount: 'false', waitTime: '', waitUnit: 'sec'
-    openshiftVerifyService namespace: 'mitzicom-test', svcName: 'mlbparks', verbose: 'false'
-    }
+	openshiftVerifyService namespace: 'mitzicom-test', svcName: 'mlbparks', verbose: 'false'
+	}
 
-    stage('mlbparks - Integration Test') {
+	stage(' Integration Test') {
 		dir('mlbparks') {
 			sh "${mvnCmd} test -P integration-tests"
-    	}
+		}
 		openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "ProdReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: "TestReady", verbose: 'false'
-    }
+	}
 
-    // Blue/Green Deployment into Production
-    // -------------------------------------
-    // Next two stages could be one.
-    // Make sure to deploy the right version. If green is active then deploy blue, and vice versa.
-    // You will need to figure out which application is active and set the target to the other.
-    def deployToColor = "mlbparks-blue"
+	// Blue/Green Deployment into Production
+	// -------------------------------------
+	// Next two stages could be one.
+	// Make sure to deploy the right version. If green is active then deploy blue, and vice versa.
+	// You will need to figure out which application is active and set the target to the other.
+	def deployToColor = "mlbparks-blue"
 
-    stage('mlbparks - Prep Production Deployment') {
-    	sh "oc project mitzicom-prod"
-    	def currentColor = sh returnStdout: true, script: 'oc get route mlbparks -o jsonpath=\'{ .spec.to.name }\' -n mitzicom-prod'
-    	if (currentColor == "mlbparks-blue") {
-    		deployToColor = "mlbparks-green"
-    	}
-    }
+	stage(' Prep Production Deployment') {
+		sh "oc project mitzicom-prod"
+		def currentColor = sh returnStdout: true, script: 'oc get route mlbparks -o jsonpath=\'{ .spec.to.name }\' -n mitzicom-prod'
+		if (currentColor == "mlbparks-blue") {
+			deployToColor = "mlbparks-green"
+		}
+	}
 	
-	stage('mlbparks - Generate Unit Tests Report') {
-            junit 'target/surefire-reports/TEST-integrationtest.*.xml'
-    }
+	stage(' Generate Unit Tests Report') {
+		dir('mlbparks') {
+			junit 'target/surefire-reports/TEST-integrationtest.*.xml'
+		}
+	}
 
-    // Deploy the ProdReady image.
-    stage('mlbparks - Deploy new Version into ' + deployToColor) {
-    	openshiftDeploy apiURL: '', authToken: '', depCfg: deployToColor, namespace: 'mitzicom-prod', verbose: 'false', waitTime: '', waitUnit: 'sec'
-    }
+	// Deploy the ProdReady image.
+	stage(' Deploy new Version into ' + deployToColor) {
+		openshiftDeploy apiURL: '', authToken: '', depCfg: deployToColor, namespace: 'mitzicom-prod', verbose: 'false', waitTime: '', waitUnit: 'sec'
+	}
 
-    // Once approved (input step) switch production over to the new version.
-    stage('mlbparks - Switch over to new Version') {
-    	input "Switch Production?"
-    	sh "oc patch route/mlbparks -p '{\"spec\":{\"to\":{\"name\":\"$deployToColor\"}}}' -n mitzicom-prod"
-    }
+	// Once approved (input step) switch production over to the new version.
+	stage(' Switch over to new Version') {
+		input "Switch Production?"
+		sh "oc patch route/mlbparks -p '{\"spec\":{\"to\":{\"name\":\"$deployToColor\"}}}' -n mitzicom-prod"
+	}
 }
 
 // Convenience Functions to read variables from the pom.xml
 // Do not change anything below this line.
 def getVersionFromPom(pom) {
-  def matcher = readFile(pom) =~ '<version>(.+)</version>'
-  matcher ? matcher[0][1] : null
+    def matcher = readFile(pom) =~ '<version>(.+)</version>'
+    matcher ? matcher[0][1] : null
 }
 def getGroupIdFromPom(pom) {
-  def matcher = readFile(pom) =~ '<groupId>(.+)</groupId>'
-  matcher ? matcher[0][1] : null
+    def matcher = readFile(pom) =~ '<groupId>(.+)</groupId>'
+    matcher ? matcher[0][1] : null
 }
 def getArtifactIdFromPom(pom) {
-  def matcher = readFile(pom) =~ '<artifactId>(.+)</artifactId>'
-  matcher ? matcher[0][1] : null
+    def matcher = readFile(pom) =~ '<artifactId>(.+)</artifactId>'
+    matcher ? matcher[0][1] : null
 }
