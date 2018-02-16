@@ -18,24 +18,32 @@ node('maven') {
         def version    = getVersionFromPom("pom.xml")
         
         // Using Maven build the war file
-        // Do not run tests in this step
-        stage('parksmap-web - Build war') {
-            sh "${mvnCmd} clean install -DskipTests=true"
-        }
-        
-        // Using Maven run the unit tests
-        stage('parksmap-web - Unit Tests') {
-            // sh "${mvnCmd} test"
-        }
-        
-        // Using Maven call SonarQube for Code Analysis
-        stage('parksmap-web - Code Analysis') {
-            // sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube:9000"
-        }
-        
-        stage('parksmap-web - Publish to Nexus') {
-            // sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3-mco-cicd.apps.bcn.example.opentlc.com/repository/releases"
-        }
+		// Do not run tests in this step
+		stage('Build war') {
+			sh "${mvnCmd} clean package -DskipTests=true"
+		}
+		
+		parallel failFast: true, firstBranch: {
+			// Using Maven run the unit tests
+		  	stage('Unit Tests') {
+			  sh "${mvnCmd} test -P unit-tests"
+		  	}
+		}, secondBranch: {
+			// Using Maven call SonarQube for Code Analysis
+		  	stage('Code Analysis') {
+				withSonarQubeEnv('Openshift - SonarQube') {
+			 		sh "${mvnCmd} sonar:sonar"
+				}
+		  	}
+		}
+		
+		stage('Generate Unit Tests Report') {
+			junit 'target/surefire-reports/TEST-unittest.*.xml'
+		}
+	
+		stage(' Publish to Nexus') {
+		   sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3.nexus.svc:8081/repository/snapshots"
+		}
      
         // Build the OpenShift Image in OpenShift. 
         stage('parksmap-web - Build OpenShift Image') {
@@ -45,12 +53,56 @@ node('maven') {
             sh "oc start-build parksmap-web --follow --from-dir=./builddir -n mitzicom-dev"
             openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'parksmap-web', destTag: "TestReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'parksmap-web', srcTag: 'latest', verbose: 'false'
         }
-        
-        // Deploy the built image to the Test Environment.
-        stage('parksmap-web - Deploy to Test') {
-            openshiftDeploy apiURL: '', authToken: '', depCfg: 'parksmap-web', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
-        }
     }
+
+	// Deployment into Test
+	// -------------------------------------
+
+	// Deploy the built image to the Test Environment.
+	stage(' Deploy to Test') {
+		openshiftDeploy apiURL: '', authToken: '', depCfg: 'parksmap-web', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
+		openshiftVerifyDeployment depCfg: 'parksmap-web', namespace: 'mitzicom-test', replicaCount: '1', verbose: 'false', verifyReplicaCount: 'false', waitTime: '', waitUnit: 'sec'
+	openshiftVerifyService namespace: 'mitzicom-test', svcName: 'parksmap-web', verbose: 'false'
+	}
+
+	stage(' Integration Test') {
+		dir('parksmap-web') {
+			sh "${mvnCmd} test -P integration-tests"
+		}
+		openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'parksmap-web', destTag: "ProdReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'parksmap-web', srcTag: "TestReady", verbose: 'false'
+	}
+
+	// Blue/Green Deployment into Production
+	// -------------------------------------
+	// Next two stages could be one.
+	// Make sure to deploy the right version. If green is active then deploy blue, and vice versa.
+	// You will need to figure out which application is active and set the target to the other.
+	def deployToColor = "parksmap-web-blue"
+
+	stage(' Prep Production Deployment') {
+		sh "oc project mitzicom-prod"
+		def currentColor = sh returnStdout: true, script: 'oc get route parksmap-web -o jsonpath=\'{ .spec.to.name }\' -n mitzicom-prod'
+		if (currentColor == "parksmap-web-blue") {
+			deployToColor = "parksmap-web-green"
+		}
+	}
+	
+	stage(' Generate Unit Tests Report') {
+		dir('parksmap-web') {
+			junit 'target/surefire-reports/TEST-integrationtest.*.xml'
+		}
+	}
+
+	// Deploy the ProdReady image.
+	stage(' Deploy new Version into ' + deployToColor) {
+		openshiftDeploy apiURL: '', authToken: '', depCfg: deployToColor, namespace: 'mitzicom-prod', verbose: 'false', waitTime: '', waitUnit: 'sec'
+	}
+
+	// Once approved (input step) switch production over to the new version.
+	stage(' Switch over to new Version') {
+		input "Switch Production?"
+		sh "oc patch route/p '{\"spec\":{\"to\":{\"name\":\"$deployToColor\"}}}' -n mitzicom-prod"
+	}
 }
 
 // Convenience Functions to read variables from the pom.xml
