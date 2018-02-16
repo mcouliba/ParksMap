@@ -21,8 +21,8 @@ import static org.junit.Assert.assertEquals;
 public class ApiTest {
 
     private String serverUrl = "http://parksmap-web-mitzicom-test.apps.46.4.112.21.xip.io";
-    private String mlbparksUrl = "http://mlbparks-mitzicom-test.apps.46.4.112.21.xip.io";
-    private String nationalparksUrl = "http://nationalparks-mitzicom-test.apps.46.4.112.21.xip.io";
+    private String mlbparksUrl = "mlbparks-mitzicom-test.apps.46.4.112.21.xip.io";
+    private String nationalparksUrl = "nationalparks-mitzicom-test.apps.46.4.112.21.xip.io";
     private RestTemplate restClient;
     private HttpHeaders headers;
 
@@ -53,22 +53,10 @@ public class ApiTest {
     public void testBackendsController() throws Exception {
 
         HttpEntity<String> requestEntity = new HttpEntity<String>("", headers);
-        ResponseEntity<String> responseEntity1 = restClient.exchange(serverUrl + "/ws/backends/register?service=" + mlbparksUrl, HttpMethod.GET, requestEntity, String.class);
+
+        String expectedResponse = "[{\"id\":\"mlbparks\",\"displayName\":\"MLB Parks\",\"center\":{\"latitude\":\"39.82\",\"longitude\":\"-98.57\"},\"zoom\":5,\"maxZoom\":1,\"type\":\"cluster\",\"visible\":true,\"scope\":\"all\"},{\"id\":\"nationalparks\",\"displayName\":\"National Parks\",\"center\":{\"latitude\":\"47.039304\",\"longitude\":\"14.505178\"},\"zoom\":4,\"maxZoom\":1,\"type\":\"cluster\",\"visible\":true,\"scope\":\"all\"}]";
+        ResponseEntity<String> responseEntity1 = restClient.exchange(serverUrl + "/ws/backends/list", HttpMethod.GET, requestEntity, String.class);
         assertEquals(200, responseEntity1.getStatusCode().value());
-
-        ResponseEntity<String> responseEntity2 = restClient.exchange(serverUrl + "/ws/backends/register?service=" + nationalparksUrl, HttpMethod.GET, requestEntity, String.class);
-        assertEquals(200, responseEntity2.getStatusCode().value());
-
-        String expectedResponse = "OK";
-        ResponseEntity<String> responseEntity3 = restClient.exchange(serverUrl + "/ws/backends/list", HttpMethod.GET, requestEntity, String.class);
-        assertEquals(200, responseEntity3.getStatusCode().value());
-        assertEquals(expectedResponse, responseEntity3.getBody());
-
-        ResponseEntity<String> responseEntity4 = restClient.exchange(serverUrl + "/ws/backends/unregister?service=" + mlbparksUrl, HttpMethod.GET, requestEntity, String.class);
-        assertEquals(200, responseEntity4.getStatusCode().value());
-        ResponseEntity<String> responseEntity5 = restClient.exchange(serverUrl + "/ws/backends/unregister?service=" + nationalparksUrl, HttpMethod.GET, requestEntity, String.class);
-        assertEquals(200, responseEntity5.getStatusCode().value());
-
-
+        assertEquals(expectedResponse, responseEntity1.getBody());
     }
 }
