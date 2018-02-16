@@ -88,7 +88,9 @@ node('maven') {
     }
 	
 	stage('mlbparks - Generate Unit Tests Report') {
+		dir('mlbparks') {
             junit 'target/surefire-reports/TEST-integrationtest.*.xml'
+		}
     }
 
     // Deploy the ProdReady image.
