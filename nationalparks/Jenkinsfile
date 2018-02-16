@@ -19,38 +19,90 @@ node('maven') {
         
         // Using Maven build the war file
         // Do not run tests in this step
-        stage('nationalparks - Build war') {
-            sh "${mvnCmd} clean install -DskipTests=true"
+        stage('Build war') {
+            sh "${mvnCmd} clean package -DskipTests=true"
         }
         
-        // Using Maven run the unit tests
-        stage('nationalparks - Unit Tests') {
-            // sh "${mvnCmd} test"
-        }
+        parallel failFast: true, firstBranch: {
+			// Using Maven run the unit tests
+		  	stage('Unit Tests') {
+			  sh "${mvnCmd} test -P unit-tests"
+		  	}
+		}, secondBranch: {
+			// Using Maven call SonarQube for Code Analysis
+		  	stage('Code Analysis') {
+				withSonarQubeEnv('Openshift - SonarQube') {
+			 		sh "${mvnCmd} sonar:sonar"
+				}
+		  	}
+		}
+		
+		stage('Generate Unit Tests Report') {
+			junit 'target/surefire-reports/TEST-unittest.*.xml'
+		}
         
-        // Using Maven call SonarQube for Code Analysis
-        stage('nationalparks - Code Analysis') {
-            // sh "${mvnCmd} sonar:sonar -Dsonar.host.url=http://sonarqube:9000"
-        }
-        
-        stage('nationalparks - Publish to Nexus') {
-            // sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3-mco-cicd.apps.bcn.example.opentlc.com/repository/releases"
-        }
+        stage(' Publish to Nexus') {
+		   sh "${mvnCmd} deploy -DskipTests=true -DaltDeploymentRepository=nexus::default::http://nexus3.nexus.svc:8081/repository/snapshots"
+		}
      
         // Build the OpenShift Image in OpenShift. 
-        stage('nationalparks - Build OpenShift Image') {
+        stage('Build OpenShift Image') {
             sh "mkdir ./builddir"
             sh "cp ./target/nationalparks.jar ./builddir"
             sh "oc project mitzicom-dev"
             sh "oc start-build nationalparks --follow --from-dir=./builddir -n mitzicom-dev"
             openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'nationalparks', destTag: "TestReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'nationalparks', srcTag: 'latest', verbose: 'false'
         }
-        
-        // Deploy the built image to the Test Environment.
-        stage('nationalparks - Deploy to Test') {
-            openshiftDeploy apiURL: '', authToken: '', depCfg: 'nationalparks', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
-        }
     }
+
+	// Deployment into Test
+	// -------------------------------------
+
+	// Deploy the built image to the Test Environment.
+	stage(' Deploy to Test') {
+		openshiftDeploy apiURL: '', authToken: '', depCfg: 'nationalparks', namespace: 'mitzicom-test', verbose: 'false', waitTime: '', waitUnit: 'sec'
+		openshiftVerifyDeployment depCfg: 'nationalparks', namespace: 'mitzicom-test', replicaCount: '1', verbose: 'false', verifyReplicaCount: 'false', waitTime: '', waitUnit: 'sec'
+	openshiftVerifyService namespace: 'mitzicom-test', svcName: 'nationalparks', verbose: 'false'
+	}
+
+	stage(' Integration Test') {
+		dir('nationalparks') {
+			sh "${mvnCmd} test -P integration-tests"
+		}
+		openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'nationalparks', destTag: "ProdReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'nationalparks', srcTag: "TestReady", verbose: 'false'
+	}
+
+	// Blue/Green Deployment into Production
+	// -------------------------------------
+	// Next two stages could be one.
+	// Make sure to deploy the right version. If green is active then deploy blue, and vice versa.
+	// You will need to figure out which application is active and set the target to the other.
+	def deployToColor = "nationalparks-blue"
+
+	stage(' Prep Production Deployment') {
+		sh "oc project mitzicom-prod"
+		def currentColor = sh returnStdout: true, script: 'oc get route nationalparks -o jsonpath=\'{ .spec.to.name }\' -n mitzicom-prod'
+		if (currentColor == "nationalparks-blue") {
+			deployToColor = "nationalparks-green"
+		}
+	}
+	
+	stage(' Generate Unit Tests Report') {
+		dir('nationalparks') {
+			junit 'target/surefire-reports/TEST-integrationtest.*.xml'
+		}
+	}
+
+	// Deploy the ProdReady image.
+	stage(' Deploy new Version into ' + deployToColor) {
+		openshiftDeploy apiURL: '', authToken: '', depCfg: deployToColor, namespace: 'mitzicom-prod', verbose: 'false', waitTime: '', waitUnit: 'sec'
+	}
+
+	// Once approved (input step) switch production over to the new version.
+	stage(' Switch over to new Version') {
+		input "Switch Production?"
+		sh "oc patch route/p '{\"spec\":{\"to\":{\"name\":\"$deployToColor\"}}}' -n mitzicom-prod"
+	}
 }
 
 // Convenience Functions to read variables from the pom.xml
