@@ -50,7 +50,7 @@ node('maven') {
 			sh "mkdir ./builddir"
 			sh "cp ./target/ROOT.war ./builddir/ROOT.war"
 			sh "oc project mitzicom-dev"
-			sh "oc start-build --follow --from-dir=./builddir -n mitzicom-dev"
+			sh "oc start-build mlbparks --follow --from-dir=./builddir -n mitzicom-dev"
 			openshiftTag alias: 'false', apiURL: '', authToken: '', destStream: 'mlbparks', destTag: "TestReady", destinationAuthToken: '', destinationNamespace: 'mitzicom-dev', namespace: 'mitzicom-dev', srcStream: 'mlbparks', srcTag: 'latest', verbose: 'false'
 		}
 	}
