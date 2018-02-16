@@ -101,7 +101,7 @@ node('maven') {
 	// Once approved (input step) switch production over to the new version.
 	stage(' Switch over to new Version') {
 		input "Switch Production?"
-		sh "oc patch route/p '{\"spec\":{\"to\":{\"name\":\"$deployToColor\"}}}' -n mitzicom-prod"
+		sh "oc patch route/nationalparks -p '{\"spec\":{\"to\":{\"name\":\"$deployToColor\"}}}' -n mitzicom-prod"
 	}
 }
 
